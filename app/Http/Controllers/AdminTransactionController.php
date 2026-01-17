@@ -53,4 +53,58 @@ class AdminTransactionController extends Controller
 
         return redirect()->back()->with('success', 'Top Up ditolak.');
     }
+
+    // ... method index, approve, reject TOP UP yang lama biarkan di atas ...
+
+    // ===========================
+    // FITUR APPROVAL WITHDRAW
+    // ===========================
+
+    // 1. Tampilkan Daftar Withdraw Pending
+    public function indexWithdrawals()
+    {
+        $transactions = Transaction::where('type', 'WITHDRAW')
+                                   ->where('status', 'pending')
+                                   ->with('user')
+                                   ->orderBy('created_at', 'desc')
+                                   ->get();
+
+        return view('admin.transactions.withdrawals', compact('transactions'));
+    }
+
+    // 2. Approve Withdraw (Tandai Selesai)
+    public function approveWithdraw($id)
+    {
+        $trx = Transaction::findOrFail($id);
+        
+        if ($trx->status == 'pending') {
+            // Cukup ubah status, karena saldo SUDAH dipotong di awal
+            $trx->update(['status' => 'approved']);
+        }
+
+        return redirect()->back()->with('success', 'Penarikan disetujui! Transaksi selesai.');
+    }
+
+    // 3. Reject Withdraw (Tolak & REFUND Saldo)
+    public function rejectWithdraw($id)
+    {
+        DB::transaction(function() use ($id) {
+            $trx = Transaction::findOrFail($id);
+            
+            if ($trx->status == 'pending') {
+                // A. Ubah Status Rejected
+                $trx->update(['status' => 'rejected']);
+
+                // B. KEMBALIKAN UANG KE DOMPET (Refund)
+                // Karena amount_cash di withdraw itu negatif (misal -100.000),
+                // Kita ambil nilai absolutnya (abs) untuk ditambahkan balik.
+                $refundAmount = abs($trx->amount_cash);
+
+                $wallet = Wallet::findOrFail($trx->wallet_id);
+                $wallet->increment('balance', $refundAmount);
+            }
+        });
+
+        return redirect()->back()->with('success', 'Penarikan ditolak. Dana dikembalikan ke user.');
+    }
 }

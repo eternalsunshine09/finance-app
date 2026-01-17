@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Wallet;
 use App\Models\Portfolio;
-use App\Models\Asset; // <--- WAJIB TAMBAH INI (Supaya bisa baca harga pasar)
+use App\Models\Asset;
 
 class DashboardController extends Controller
 {
@@ -15,7 +15,7 @@ class DashboardController extends Controller
         // 1. Ambil Data User
         $user = Auth::user();
 
-        // [LOGIKA BARU] Cek Role: Kalau Admin, tendang ke Dashboard Admin
+        // Cek Role: Kalau Admin, tendang ke Dashboard Admin
         if ($user->role == 'admin') {
             return redirect()->route('admin.dashboard');
         }
@@ -33,30 +33,45 @@ class DashboardController extends Controller
         $daftarAset = [];
 
         foreach ($portfolios as $porto) {
-            // [LOGIKA BARU] Ambil Harga Pasar dari Database Aset (Bukan Hardcode lagi)
+            // Ambil Harga Pasar dari Database Aset
             $dataAset = Asset::where('symbol', $porto->asset_symbol)->first();
-            
-            // Kalau aset ditemukan, pakai harganya. Kalau tidak (misal dihapus), set 0.
             $hargaPasar = $dataAset ? $dataAset->current_price : 0; 
 
-            // Hitung-hitungan (Sama seperti sebelumnya)
+            // Hitung-hitungan
             $nilaiAset = $porto->quantity * $hargaPasar;
             $modalAwal = $porto->quantity * $porto->average_buy_price;
             $profit = $nilaiAset - $modalAwal;
 
             $totalInvestasi += $nilaiAset;
 
+            // MENYUSUN DATA UNTUK VIEW
             $daftarAset[] = [
                 'aset' => $porto->asset_symbol,
-                'nama_lengkap' => $dataAset->name ?? 'Unknown', // Tambahan: Tampilkan nama panjang
-                'jumlah' => $porto->quantity,
+                'nama_lengkap' => $dataAset->name ?? 'Unknown',
+                
+                // 👇👇 BAGIAN INI YANG TADI HILANG/ERROR 👇👇
+                'jumlah' => $porto->quantity, // <--- Pastikan baris ini ada!
+                // 👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆
+                
                 'modal' => $modalAwal,
                 'nilai_sekarang' => $nilaiAset,
                 'cuan' => $profit
             ];
         }
 
-        // 4. Kirim Data ke View
+        // 4. Siapkan Data Chart
+        $chartLabels = [];
+        $chartValues = [];
+
+        $chartLabels[] = 'Uang Tunai (IDR)';
+        $chartValues[] = $totalCash;
+
+        foreach ($daftarAset as $item) {
+            $chartLabels[] = $item['aset'];
+            $chartValues[] = $item['nilai_sekarang'];
+        }
+
+        // 5. Kirim Data ke View
         return view('dashboard', [
             'user' => $user->name, 
             'rekap' => [
@@ -64,7 +79,9 @@ class DashboardController extends Controller
                 'nilai_investasi' => $totalInvestasi,
                 'total_kekayaan' => $totalCash + $totalInvestasi
             ],
-            'detail_aset' => $daftarAset
+            'detail_aset' => $daftarAset,
+            'chartLabels' => $chartLabels, 
+            'chartValues' => $chartValues
         ]);
     }
 }

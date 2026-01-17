@@ -22,35 +22,41 @@ class TransactionController extends Controller
 
     public function topUp(Request $request)
     {
-        // ... validasi (biarkan sama) ...
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'amount' => 'required|numeric|min:10000',
+            'currency' => 'required|in:IDR,USD',
+            // 👇 Validasi Foto (Wajib ada, harus gambar, max 2MB)
+            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
+        ]);
 
         DB::transaction(function () use ($request) {
             
-            // 1. Pastikan Dompet Ada (Biarkan)
+            // 1. Simpan Foto ke Folder 'public/receipts'
+            // Nanti tersimpan sebagai: storage/app/public/receipts/acak.jpg
+            $proofPath = $request->file('payment_proof')->store('receipts', 'public');
+
             $wallet = Wallet::firstOrCreate(
                 ['user_id' => $request->user_id, 'currency' => $request->currency],
                 ['balance' => 0]
             );
 
-            // 2. Catat Transaksi dengan status PENDING (Biarkan)
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
                 'type' => 'TOPUP',
                 'amount_cash' => $request->amount,
                 'date' => now(),
-                'status' => 'pending' 
+                'status' => 'pending',
+                // 👇 Simpan Path Foto ke Database
+                'payment_proof' => $proofPath 
             ]);
 
-            // 👇👇👇 BAGIAN INI YANG HARUS KAMU MATIKAN 👇👇👇
-            // Beri tanda // di depannya supaya jadi komentar (tidak dijalankan)
-            
+            // Ingat: Jangan increment saldo di sini! (Masih dikomentari)
             // $wallet->increment('balance', $request->amount); 
-            
-            // 👆👆👆 PASTIKAN ADA GARIS MIRINGNYA (//) 👆👆👆
         });
 
-        return redirect()->route('dashboard')->with('success', 'Permintaan Top Up dikirim! Menunggu Admin.');
+        return redirect()->route('dashboard')->with('success', 'Bukti transfer berhasil diupload! Menunggu verifikasi Admin.');
     }
 
     // ===========================
@@ -180,8 +186,13 @@ class TransactionController extends Controller
     }
 
     // ===========================
-    // 4. FITUR WITHDRAW
+    // 4. FITUR WITHDRAW (TARIK DANA)
     // ===========================
+    public function showWithdrawForm()
+    {
+        return view('transactions.withdraw');
+    }
+
     public function withdraw(Request $request)
     {
         $request->validate([
@@ -191,26 +202,33 @@ class TransactionController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
+            // A. Cek Saldo & Dompet
             $wallet = Wallet::where('user_id', $request->user_id)
                             ->where('currency', $request->currency)
                             ->first();
 
+            // Validasi: Apakah saldo cukup?
             if (!$wallet || $wallet->balance < $request->amount) {
-                return response()->json(['message' => 'Saldo tidak cukup!'], 400);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount' => 'Saldo tidak cukup untuk penarikan ini!',
+                ]);
             }
 
+            // B. Catat Transaksi (Status: PENDING)
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
                 'type' => 'WITHDRAW',
-                'amount_cash' => -$request->amount,
+                'amount_cash' => -$request->amount, // Negatif karena uang keluar
                 'date' => now(),
+                'status' => 'pending' 
             ]);
 
+            // C. POTONG SALDO LANGSUNG (Agar tidak bisa dipake beli saham)
             $wallet->decrement('balance', $request->amount);
         });
 
-        return redirect()->route('dashboard')->with('success', 'Penarikan Berhasil!');
+        return redirect()->route('dashboard')->with('success', 'Permintaan Penarikan Berhasil! Saldo diamankan menunggu transfer Admin.');
     }
 
     // ===========================
