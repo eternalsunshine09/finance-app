@@ -11,26 +11,28 @@ use Illuminate\Support\Facades\DB; // <--- Ini penting buat Database Transaction
 
 class TransactionController extends Controller
 {
+    public function showTopUpForm()
+    {
+        return view('transactions.topup');
+    }
     // FITUR 1: TOP UP SALDO (Uang Masuk)
+    // FITUR 1: TOP UP SALDO
     public function topUp(Request $request)
     {
-        // 1. Validasi Input
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'amount' => 'required|numeric|min:10000', // Minimal topup 10rb
+            'amount' => 'required|numeric|min:10000',
             'currency' => 'required|in:IDR,USD',
         ]);
 
-        // Gunakan DB::transaction agar aman (All or Nothing)
-        return DB::transaction(function () use ($request) {
+        // Gunakan DB::transaction
+        DB::transaction(function () use ($request) {
             
-            // A. Cari Dompet User
             $wallet = Wallet::firstOrCreate(
                 ['user_id' => $request->user_id, 'currency' => $request->currency],
                 ['balance' => 0]
             );
 
-            // B. Catat Riwayat Transaksi
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
@@ -39,11 +41,11 @@ class TransactionController extends Controller
                 'date' => now(),
             ]);
 
-            // C. Update Saldo Dompet
             $wallet->increment('balance', $request->amount);
-
-            return response()->json(['message' => 'Top Up Berhasil!', 'saldo_baru' => $wallet->balance]);
         });
+
+        // --- UBAH BAGIAN INI (DARI JSON KE REDIRECT) ---
+        return redirect()->route('dashboard')->with('success', 'Top Up Berhasil! Saldo sudah bertambah.');
     }
 
     // FITUR 2: BELI ASET (Uang Keluar, Aset Masuk)

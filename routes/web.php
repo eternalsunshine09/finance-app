@@ -19,8 +19,13 @@ Route::middleware(['guest'])->group(function () {
         return redirect()->route('login');
     });
     
+    // LOGIN
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+
+    // REGISTER (Baru Ditambahkan)
+    Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.process');
 });
 
 // --- 2. AREA MEMBER (Wajib Login) ---
@@ -35,19 +40,9 @@ Route::middleware(['auth'])->group(function () {
     //  (Nanti dihapus kalau form input UI sudah jadi)
     // =================================================================
 
-    // Test 1: Top Up Saldo
-    Route::get('/test-topup', function (TransactionController $controller) {
-        $userId = Auth::id(); // Ambil ID user yang sedang login
-
-        $request = Request::create('/test-topup', 'POST', [
-            'user_id' => $userId,
-            'amount' => 5000000, // Topup 5 Juta
-            'currency' => 'IDR'
-        ]);
-        
-        $request->headers->set('Accept', 'application/json');
-        return $controller->topUp($request);
-    });
+    // FITUR TOP UP
+    Route::get('/topup', [TransactionController::class, 'showTopUpForm'])->name('topup');
+    Route::post('/topup', [TransactionController::class, 'topUp'])->name('topup.process');
 
     // Test 2: Beli Saham ANTM
     Route::get('/test-beli', function (TransactionController $controller) {
