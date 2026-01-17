@@ -17,6 +17,13 @@
         </div>
     </nav>
 
+    @if(session('success'))
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+        <strong class="font-bold">Berhasil!</strong>
+        <span class="block sm:inline">{{ session('success') }}</span>
+    </div>
+    @endif
+
     <div class="container mx-auto mt-8 px-4">
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -94,11 +101,14 @@
         </div>
 
         <div class="mt-8 flex gap-4">
-            <button class="bg-green-600 text-white font-bold py-2 px-6 rounded hover:bg-green-700 transition">
+            <a href="{{ route('topup') }}"
+                class="bg-green-600 text-white font-bold py-2 px-6 rounded hover:bg-green-700 transition inline-block">
                 + Top Up Saldo
-            </button>
-            <button class="bg-indigo-600 text-white font-bold py-2 px-6 rounded hover:bg-indigo-700 transition">
-                + Beli Aset Baru
+            </a>
+
+            <button
+                class="bg-indigo-600 text-white font-bold py-2 px-6 rounded hover:bg-indigo-700 transition opacity-50 cursor-not-allowed">
+                + Beli Aset Baru (Segera)
             </button>
         </div>
 
