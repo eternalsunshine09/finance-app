@@ -54,6 +54,7 @@ Route::middleware(['auth'])->group(function () {
 
     // MENU WALLET
     Route::get('/wallet', [App\Http\Controllers\WalletController::class, 'index'])->name('wallet.index');
+    Route::post('/wallet/create', [App\Http\Controllers\WalletController::class, 'store'])->name('wallet.store');
 
     // MENU MARKET / EXCHANGE
     Route::get('/market', [App\Http\Controllers\MarketController::class, 'index'])->name('market.index');
