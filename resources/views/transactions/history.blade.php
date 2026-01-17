@@ -26,7 +26,14 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
-                        <th class="py-3 px-6">Tanggal</th>
+                        <td class="p-4 text-sm">
+                            <span class="font-bold block text-gray-800">
+                                {{ \Carbon\Carbon::parse($trx->date)->format('d M Y') }}
+                            </span>
+                            <span class="text-xs text-gray-500">
+                                Pukul {{ \Carbon\Carbon::parse($trx->date)->format('H:i') }}
+                            </span>
+                        </td>
                         <th class="py-3 px-6">Tipe</th>
                         <th class="py-3 px-6">Aset</th>
                         <th class="py-3 px-6 text-right">Jumlah Uang</th>

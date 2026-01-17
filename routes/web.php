@@ -10,7 +10,11 @@ use App\Http\Controllers\AdminDashboardController;
 
 // --- 1. AREA TAMU (Guest) ---
 Route::middleware(['guest'])->group(function () {
-    Route::get('/', function () { return redirect()->route('login'); });
+   Route::get('/', function () {
+        // Ambil data aset acak buat hiasan ticker harga di depan
+        $assets = \App\Models\Asset::take(5)->get(); 
+        return view('welcome', compact('assets')); 
+    });
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
@@ -47,6 +51,14 @@ Route::middleware(['auth'])->group(function () {
 
     // Fitur History
     Route::get('/history', [TransactionController::class, 'history'])->name('history');
+
+    // 👇 API INTERNAL: Untuk ambil harga aset via Javascript
+    Route::get('/api/price/{symbol}', function ($symbol) {
+        $asset = App\Models\Asset::where('symbol', $symbol)->first();
+        return response()->json([
+            'price' => $asset ? $asset->current_price : 0
+        ]);
+    })->name('api.price');
 });
 
 // --- 3. AREA ADMIN ---
@@ -54,6 +66,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
 
     // Aset
+    // SYNC HARGA (Taruh sebelum route /{id} biar gak bentrok)
+    Route::post('/assets/sync', [App\Http\Controllers\AssetController::class, 'syncToApi'])->name('admin.assets.sync');
     Route::get('/assets', [AssetController::class, 'index'])->name('admin.assets.index');
     Route::post('/assets', [AssetController::class, 'store'])->name('admin.assets.store');
     Route::patch('/assets/{id}', [AssetController::class, 'updatePrice'])->name('admin.assets.updatePrice');

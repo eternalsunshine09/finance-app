@@ -7,6 +7,7 @@ use App\Models\Wallet;
 use App\Models\Asset;
 use App\Models\Portfolio;
 use App\Models\Transaction;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
@@ -71,7 +72,9 @@ class TransactionController extends Controller
 
     public function buyAsset(Request $request)
     {
+        // 1. Tambahkan validasi untuk harga manual
         $request->validate([
+            'buy_price' => 'required|numeric|min:1',
             'user_id' => 'required|exists:users,id',
             'asset_symbol' => 'required|exists:assets,symbol',
             'quantity' => 'required|numeric|min:0.00000001',
@@ -79,51 +82,63 @@ class TransactionController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
-            $totalCost = $request->quantity * $request->price_per_unit;
+            $transactionDate = $request->custom_date ? Carbon::parse($request->custom_date) : now();
 
-            // A. Cek Saldo
-            $wallet = Wallet::where('user_id', $request->user_id)
-                            ->where('currency', 'IDR')
-                            ->first();
+            // ❌ JANGAN PAKAI INI LAGI:
+            // $asset = Asset::where('symbol', $request->asset_symbol)->first();
+            // $currentPrice = $asset->current_price;
 
-            if (!$wallet || $wallet->balance < $totalCost) {
-                // Lempar error validasi agar user tahu saldonya kurang
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'quantity' => 'Saldo tidak cukup untuk membeli aset ini!',
-                ]);
+            // ✅ PAKAI INI (Harga dari Input User):
+            $currentPrice = $request->buy_price; 
+
+            // Hitung Total Bayar
+            // Rumus: Jumlah Unit * Harga Per Unit
+            // (Tadi kan rumusnya kebalik karena inputnya rupiah, sekarang inputnya unit & harga)
+            // Jadi Total Uang Keluar = Unit * Harga
+            $totalCost = $request->amount * $currentPrice;
+
+            // Update Wallet
+            $wallet = Wallet::where('user_id', $request->user_id)->first();
+            
+            // Cek saldo cukup gak?
+            if ($wallet->balance < $totalCost) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Saldo tidak cukup!']);
             }
+            
+            $wallet->decrement('balance', $totalCost);
 
-            // B. Catat Transaksi
+            // Update Portofolio (Average Price Logic)
+            $portfolio = Portfolio::firstOrCreate(
+                ['user_id' => $request->user_id, 'asset_symbol' => $request->asset_symbol],
+                ['quantity' => 0, 'average_buy_price' => 0]
+            );
+
+            // Hitung AVG Price Baru
+            $oldTotalValue = $portfolio->quantity * $portfolio->average_buy_price;
+            $newTotalValue = $oldTotalValue + $totalCost;
+            $newQuantity = $portfolio->quantity + $request->amount;
+            
+            $newAvg = $newTotalValue / $newQuantity;
+
+            $portfolio->update([
+                'quantity' => $newQuantity,
+                'average_buy_price' => $newAvg
+            ]);
+
+            // Simpan Transaksi
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
                 'type' => 'BUY',
+                'amount_cash' => -$totalCost, // Uang keluar
+                'amount_asset' => $request->amount, // Unit aset masuk
                 'asset_symbol' => $request->asset_symbol,
-                'amount_cash' => -$totalCost,
-                'amount_asset' => $request->quantity,
-                'price_per_unit' => $request->price_per_unit,
-                'date' => now(),
+                'date' => $transactionDate,
+                'status' => 'approved'
             ]);
-
-            // C. Potong Uang
-            $wallet->decrement('balance', $totalCost);
-
-            // D. Update Portofolio (Average Price)
-            $portfolio = Portfolio::firstOrNew([
-                'user_id' => $request->user_id,
-                'asset_symbol' => $request->asset_symbol
-            ]);
-
-            $oldQty = $portfolio->quantity ?? 0;
-            $oldAvg = $portfolio->average_buy_price ?? 0;
-            $newAvg = (($oldQty * $oldAvg) + $totalCost) / ($oldQty + $request->quantity);
-
-            $portfolio->quantity = $oldQty + $request->quantity;
-            $portfolio->average_buy_price = $newAvg;
-            $portfolio->save();
         });
 
-        return redirect()->route('dashboard')->with('success', 'Pembelian Aset Berhasil!');
+        return redirect()->route('dashboard')->with('success', 'Pembelian berhasil dicatat!');
     }
 
     // ===========================

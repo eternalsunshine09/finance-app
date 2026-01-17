@@ -25,6 +25,12 @@
         </div>
         @endif
 
+        @if(session('error'))
+        <div class="bg-red-600 text-white px-4 py-3 rounded mb-4">
+            {{ session('error') }}
+        </div>
+        @endif
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 
             <div class="bg-gray-700 p-6 rounded-lg shadow-lg h-fit">
@@ -42,6 +48,14 @@
                         <input type="text" name="name"
                             class="w-full p-2 rounded bg-gray-600 text-white border border-gray-500" required>
                     </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm mb-1">API ID (CoinGecko)</label>
+                        <input type="text" name="api_id" placeholder="Ex: bitcoin, ethereum"
+                            class="w-full p-2 rounded bg-gray-600 text-white border border-gray-500 text-sm">
+                        <p class="text-xs text-gray-400 mt-1">Kosongkan jika aset manual/saham.</p>
+                    </div>
+
                     <div class="mb-4">
                         <label class="block text-sm mb-1">Tipe</label>
                         <select name="type" class="w-full p-2 rounded bg-gray-600 text-white border border-gray-500">
@@ -61,7 +75,17 @@
             </div>
 
             <div class="md:col-span-2 bg-gray-700 p-6 rounded-lg shadow-lg">
-                <h2 class="text-xl font-bold mb-4 border-b border-gray-600 pb-2">📜 Daftar Aset Tersedia</h2>
+                <div class="flex justify-between items-center mb-4 border-b border-gray-600 pb-2">
+                    <h2 class="text-xl font-bold">📜 Daftar Aset Tersedia</h2>
+
+                    <form action="{{ route('admin.assets.sync') }}" method="POST">
+                        @csrf
+                        <button type="submit"
+                            class="bg-indigo-500 hover:bg-indigo-400 text-white font-bold py-1 px-4 rounded shadow flex items-center gap-2">
+                            🔄 Sync Harga (Live)
+                        </button>
+                    </form>
+                </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -78,7 +102,13 @@
                             @foreach($assets as $asset)
                             <tr class="border-b border-gray-600 hover:bg-gray-600 transition">
                                 <td class="p-3 font-bold text-yellow-400">{{ $asset->symbol }}</td>
-                                <td class="p-3">{{ $asset->name }}</td>
+
+                                <td class="p-3">
+                                    {{ $asset->name }}
+                                    @if($asset->api_id)
+                                    <span class="text-xs bg-indigo-600 px-1 rounded ml-1">Auto</span>
+                                    @endif
+                                </td>
                                 <td class="p-3">Rp {{ number_format($asset->current_price, 0, ',', '.') }}</td>
 
                                 <td class="p-3">
