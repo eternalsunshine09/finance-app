@@ -42,10 +42,10 @@ class DashboardController extends Controller
             ];
         }
 
-        // 3. Output Data Laporan
-        return response()->json([
-            'user' => 'Budi Investor',
-            'rekap_keuangan' => [
+        // UBAH BAGIAN RETURN INI:
+        return view('dashboard', [
+            'user' => 'Budi Investor', // Nanti kita ganti Auth::user()->name
+            'rekap' => [
                 'uang_tunai' => $totalCash,
                 'nilai_investasi' => $totalInvestasi,
                 'total_kekayaan' => $totalCash + $totalInvestasi
