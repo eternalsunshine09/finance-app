@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth; // Wajib import ini
 use App\Models\Wallet;
 use App\Models\Portfolio;
 
@@ -10,23 +11,26 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        $userId = 2; // Kita hardcode ID si Budi dulu
+        // 1. Ambil Data User yang Sedang Login (Dinamis)
+        $user = Auth::user();
+        $userId = $user->id;
 
-        // 1. Ambil Total Uang Tunai (Cash)
+        // 2. Ambil Total Uang Tunai (Cash)
         $wallets = Wallet::where('user_id', $userId)->get();
         $totalCash = $wallets->sum('balance');
 
-        // 2. Ambil Aset & Hitung Valuasinya
+        // 3. Ambil Aset & Hitung Valuasinya
         $portfolios = Portfolio::where('user_id', $userId)->get();
         
         $totalInvestasi = 0;
         $daftarAset = [];
 
         foreach ($portfolios as $porto) {
-            // CERITA: Anggap harga pasar ANTM sekarang NAIK jadi Rp 2.500
-            // (Nanti ini bisa kita ambil dari database harga live)
+            // [LOGIKA SEMENTARA] Harga Pasar Hardcoded
+            // Nanti diganti dengan API real-time
             $hargaPasar = 2500; 
-            
+
+            // Hitung-hitungan
             $nilaiAset = $porto->quantity * $hargaPasar;
             $modalAwal = $porto->quantity * $porto->average_buy_price;
             $profit = $nilaiAset - $modalAwal;
@@ -42,9 +46,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // UBAH BAGIAN RETURN INI:
+        // 4. Kirim Data ke View (Blade)
         return view('dashboard', [
-            'user' => 'Budi Investor', // Nanti kita ganti Auth::user()->name
+            'user' => $user->name, // Mengambil nama asli dari database
             'rekap' => [
                 'uang_tunai' => $totalCash,
                 'nilai_investasi' => $totalInvestasi,
