@@ -3,16 +3,23 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Wajib import ini
+use Illuminate\Support\Facades\Auth;
 use App\Models\Wallet;
 use App\Models\Portfolio;
+use App\Models\Asset; // <--- WAJIB TAMBAH INI (Supaya bisa baca harga pasar)
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Ambil Data User yang Sedang Login (Dinamis)
+        // 1. Ambil Data User
         $user = Auth::user();
+
+        // [LOGIKA BARU] Cek Role: Kalau Admin, tendang ke Dashboard Admin
+        if ($user->role == 'admin') {
+            return redirect()->route('admin.dashboard');
+        }
+
         $userId = $user->id;
 
         // 2. Ambil Total Uang Tunai (Cash)
@@ -26,11 +33,13 @@ class DashboardController extends Controller
         $daftarAset = [];
 
         foreach ($portfolios as $porto) {
-            // [LOGIKA SEMENTARA] Harga Pasar Hardcoded
-            // Nanti diganti dengan API real-time
-            $hargaPasar = 2500; 
+            // [LOGIKA BARU] Ambil Harga Pasar dari Database Aset (Bukan Hardcode lagi)
+            $dataAset = Asset::where('symbol', $porto->asset_symbol)->first();
+            
+            // Kalau aset ditemukan, pakai harganya. Kalau tidak (misal dihapus), set 0.
+            $hargaPasar = $dataAset ? $dataAset->current_price : 0; 
 
-            // Hitung-hitungan
+            // Hitung-hitungan (Sama seperti sebelumnya)
             $nilaiAset = $porto->quantity * $hargaPasar;
             $modalAwal = $porto->quantity * $porto->average_buy_price;
             $profit = $nilaiAset - $modalAwal;
@@ -39,6 +48,7 @@ class DashboardController extends Controller
 
             $daftarAset[] = [
                 'aset' => $porto->asset_symbol,
+                'nama_lengkap' => $dataAset->name ?? 'Unknown', // Tambahan: Tampilkan nama panjang
                 'jumlah' => $porto->quantity,
                 'modal' => $modalAwal,
                 'nilai_sekarang' => $nilaiAset,
@@ -46,9 +56,9 @@ class DashboardController extends Controller
             ];
         }
 
-        // 4. Kirim Data ke View (Blade)
+        // 4. Kirim Data ke View
         return view('dashboard', [
-            'user' => $user->name, // Mengambil nama asli dari database
+            'user' => $user->name, 
             'rekap' => [
                 'uang_tunai' => $totalCash,
                 'nilai_investasi' => $totalInvestasi,

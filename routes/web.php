@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TransactionController;
 
@@ -44,21 +45,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/topup', [TransactionController::class, 'showTopUpForm'])->name('topup');
     Route::post('/topup', [TransactionController::class, 'topUp'])->name('topup.process');
 
-    // Test 2: Beli Saham ANTM
-    Route::get('/test-beli', function (TransactionController $controller) {
-        $userId = Auth::id();
-
-        $request = Request::create('/test-beli', 'POST', [
-            'user_id' => $userId,
-            'asset_symbol' => 'ANTM',
-            'quantity' => 100,      // Beli 100 lembar
-            'price_per_unit' => 2000 
-        ]);
-
-        $request->headers->set('Accept', 'application/json');
-        return $controller->buyAsset($request);
-    });
-
+    // Test 2: Beli Saham
+    // FITUR BELI ASET
+    Route::get('/buy', [TransactionController::class, 'showBuyForm'])->name('buy');
+    Route::post('/buy', [TransactionController::class, 'buyAsset'])->name('buy.process');
     // Test 3: Jual Saham ANTM
     Route::get('/test-jual', function (TransactionController $controller) {
         $userId = Auth::id();
@@ -74,6 +64,24 @@ Route::middleware(['auth'])->group(function () {
         return $controller->sellAsset($request);
     });
 
+    // --- 3. AREA ADMIN (Hanya Role 'admin') ---
+    Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
+        
+        // A. Dashboard Admin
+        Route::get('/dashboard', [App\Http\Controllers\AdminDashboardController::class, 'index'])->name('admin.dashboard');
+
+        // B. Manajemen Aset
+        Route::get('/assets', [App\Http\Controllers\AssetController::class, 'index'])->name('admin.assets.index');
+        Route::post('/assets', [App\Http\Controllers\AssetController::class, 'store'])->name('admin.assets.store');
+        Route::patch('/assets/{id}', [App\Http\Controllers\AssetController::class, 'updatePrice'])->name('admin.assets.updatePrice');
+        Route::delete('/assets/{id}', [App\Http\Controllers\AssetController::class, 'destroy'])->name('admin.assets.destroy');
+
+        // C. Approval Top Up (INI YANG TADI HILANG/ERROR) 👇
+        Route::get('/topups', [App\Http\Controllers\AdminTransactionController::class, 'index'])->name('admin.transactions.index');
+        Route::patch('/topups/{id}/approve', [App\Http\Controllers\AdminTransactionController::class, 'approve'])->name('admin.transactions.approve');
+        Route::patch('/topups/{id}/reject', [App\Http\Controllers\AdminTransactionController::class, 'reject'])->name('admin.transactions.reject');
+    });
+
     // Test 4: Tarik Dana (Withdraw)
     Route::get('/test-tarik', function (TransactionController $controller) {
         $userId = Auth::id();
@@ -87,4 +95,6 @@ Route::middleware(['auth'])->group(function () {
         $request->headers->set('Accept', 'application/json');
         return $controller->withdraw($request);
     });
+    // FITUR HISTORY
+    Route::get('/history', [TransactionController::class, 'history'])->name('history');
 });
