@@ -47,9 +47,8 @@
                         </a>
                     </li>
                     <li>
-                        <a href="#"
-                            class="flex items-center px-6 py-3 hover:bg-gray-800 text-gray-400 cursor-not-allowed"
-                            title="Segera Hadir">
+                        <a href="{{ route('market.index') }}"
+                            class="flex items-center px-6 py-3 hover:bg-gray-800 {{ request()->routeIs('market.index') ? 'bg-gray-800 border-l-4 border-yellow-500' : '' }}">
                             <span class="text-xl mr-3">💱</span> Exchange Rate
                         </a>
                     </li>

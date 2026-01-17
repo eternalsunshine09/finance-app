@@ -63,62 +63,59 @@ class TransactionController extends Controller
     // ===========================
     // 2. FITUR BELI ASET
     // ===========================
-    public function showBuyForm()
+    public function showBuyForm(Request $request) // Tambahkan Request $request
     {
-        $assets = Asset::all();
-        // PERBAIKAN: Mengembalikan View, bukan Redirect
-        return view('transactions.buy', compact('assets')); 
+        $assets = \App\Models\Asset::all();
+        
+        // Ambil parameter '?asset=BTC' dari URL (kalau ada)
+        $selectedAsset = $request->query('asset'); 
+
+        // Kirim ke View
+        return view('transactions.buy', compact('assets', 'selectedAsset'));
     }
 
     public function buyAsset(Request $request)
     {
-        // 1. Tambahkan validasi untuk harga manual
+        // 1. VALIDASI
         $request->validate([
             'buy_price' => 'required|numeric|min:1',
-            'user_id' => 'required|exists:users,id',
             'asset_symbol' => 'required|exists:assets,symbol',
-            'quantity' => 'required|numeric|min:0.00000001',
-            'price_per_unit' => 'required|numeric',
+            'amount' => 'required|numeric|min:0.00000001',
+            // ❌ HAPUS BARIS DI BAWAH INI (Ini penyebab errornya)
+            // 'price_per_unit' => 'required|numeric', 
         ]);
 
-        DB::transaction(function () use ($request) {
-            $transactionDate = $request->custom_date ? Carbon::parse($request->custom_date) : now();
+        $userId = Auth::id(); 
 
-            // ❌ JANGAN PAKAI INI LAGI:
-            // $asset = Asset::where('symbol', $request->asset_symbol)->first();
-            // $currentPrice = $asset->current_price;
-
-            // ✅ PAKAI INI (Harga dari Input User):
+        DB::transaction(function () use ($request, $userId) {
+            
+            $transactionDate = $request->custom_date ? \Carbon\Carbon::parse($request->custom_date) : now();
+            
+            // Kita pakai 'buy_price' dari input user
             $currentPrice = $request->buy_price; 
-
-            // Hitung Total Bayar
-            // Rumus: Jumlah Unit * Harga Per Unit
-            // (Tadi kan rumusnya kebalik karena inputnya rupiah, sekarang inputnya unit & harga)
-            // Jadi Total Uang Keluar = Unit * Harga
+            
             $totalCost = $request->amount * $currentPrice;
 
             // Update Wallet
-            $wallet = Wallet::where('user_id', $request->user_id)->first();
+            $wallet = Wallet::where('user_id', $userId)->first();
             
-            // Cek saldo cukup gak?
-            if ($wallet->balance < $totalCost) {
+            if (!$wallet || $wallet->balance < $totalCost) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Saldo tidak cukup!']);
             }
             
             $wallet->decrement('balance', $totalCost);
 
-            // Update Portofolio (Average Price Logic)
-            $portfolio = Portfolio::firstOrCreate(
-                ['user_id' => $request->user_id, 'asset_symbol' => $request->asset_symbol],
+            // Update Portofolio
+            $portfolio = \App\Models\Portfolio::firstOrCreate(
+                ['user_id' => $userId, 'asset_symbol' => $request->asset_symbol],
                 ['quantity' => 0, 'average_buy_price' => 0]
             );
 
-            // Hitung AVG Price Baru
             $oldTotalValue = $portfolio->quantity * $portfolio->average_buy_price;
             $newTotalValue = $oldTotalValue + $totalCost;
             $newQuantity = $portfolio->quantity + $request->amount;
             
-            $newAvg = $newTotalValue / $newQuantity;
+            $newAvg = $newQuantity > 0 ? ($newTotalValue / $newQuantity) : 0;
 
             $portfolio->update([
                 'quantity' => $newQuantity,
@@ -126,12 +123,12 @@ class TransactionController extends Controller
             ]);
 
             // Simpan Transaksi
-            Transaction::create([
-                'user_id' => $request->user_id,
+            \App\Models\Transaction::create([
+                'user_id' => $userId,
                 'wallet_id' => $wallet->id,
                 'type' => 'BUY',
-                'amount_cash' => -$totalCost, // Uang keluar
-                'amount_asset' => $request->amount, // Unit aset masuk
+                'amount_cash' => -$totalCost, 
+                'amount_asset' => $request->amount,
                 'asset_symbol' => $request->asset_symbol,
                 'date' => $transactionDate,
                 'status' => 'approved'
