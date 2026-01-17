@@ -8,9 +8,38 @@
     @vite('resources/css/app.css')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
     <style>
     body {
         font-family: 'Inter', sans-serif;
+    }
+
+    /* 1. Efek Hover Halus pada Kartu */
+    .hover-scale {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .hover-scale:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 2. Scrollbar Cantik */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
     }
     </style>
 </head>
@@ -32,7 +61,6 @@
                             <span class="text-xl mr-3">🏠</span> Dashboard
                         </a>
                     </li>
-
                     <li>
                         <a href="{{ route('wallet.index') }}"
                             class="flex items-center px-6 py-3 hover:bg-gray-800 {{ request()->routeIs('wallet.index') ? 'bg-gray-800 border-l-4 border-yellow-500' : '' }}">
@@ -40,9 +68,8 @@
                         </a>
                     </li>
                     <li>
-                        <a href="#"
-                            class="flex items-center px-6 py-3 hover:bg-gray-800 text-gray-400 cursor-not-allowed"
-                            title="Segera Hadir">
+                        <a href="{{ route('portfolio.index') }}"
+                            class="flex items-center px-6 py-3 hover:bg-gray-800 {{ request()->routeIs('portfolio.index') ? 'bg-gray-800 border-l-4 border-yellow-500' : '' }}">
                             <span class="text-xl mr-3">📊</span> Portofolio Detail
                         </a>
                     </li>
@@ -112,18 +139,72 @@
             </header>
 
             <div class="p-6 pb-20">
-                @if(session('success'))
-                <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
-                    <p class="font-bold">Sukses!</p>
-                    <p>{{ session('success') }}</p>
-                </div>
-                @endif
-
                 @yield('content')
             </div>
         </main>
 
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+    // 1. Notifikasi Sukses
+    @if(session('success'))
+    Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: "{{ session('success') }}",
+        showConfirmButton: false,
+        timer: 2000,
+        background: '#f0fdf4',
+        iconColor: '#16a34a'
+    });
+    @endif
+
+    // 2. Notifikasi Error
+    @if(session('error'))
+    Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: "{{ session('error') }}",
+        background: '#fef2f2',
+        iconColor: '#dc2626'
+    });
+    @endif
+
+    // 3. Notifikasi Validasi Form
+    // Menggunakan count() agar formatter tidak memisahkan tanda panah
+    @if(count($errors) > 0)
+    Swal.fire({
+        icon: 'warning',
+        title: 'Periksa Inputan',
+        // Hati-hati di baris bawah ini, pastikan tanda panah pada $errors->all() tetap nyambung
+        html: '<ul class="text-left text-sm">@foreach($errors->all() as $error)<li>• {{ $error }}</li>@endforeach</ul>',
+    });
+    @endif
+
+    // 4. Loading State (Agar tombol loading saat diklik)
+    document.addEventListener('DOMContentLoaded', function() {
+        const forms = document.querySelectorAll('form');
+        forms.forEach(form => {
+            form.addEventListener('submit', function() {
+                const btn = this.querySelector('button[type="submit"]');
+                if (btn) {
+                    btn.disabled = true;
+                    const originalText = btn.innerText;
+                    btn.innerHTML = `
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Memproses...
+                        `;
+                    btn.classList.add('opacity-75', 'cursor-not-allowed');
+                }
+            });
+        });
+    });
+    </script>
 
     @yield('scripts')
 </body>

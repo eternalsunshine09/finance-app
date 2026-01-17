@@ -123,15 +123,15 @@
                                     </form>
                                 </td>
 
-                                <td class="p-3 text-center">
-                                    <form action="{{ route('admin.assets.destroy', $asset->id) }}" method="POST"
-                                        onsubmit="return confirm('Yakin hapus aset ini?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-red-400 hover:text-red-200 font-bold">🗑
-                                            Hapus</button>
-                                    </form>
-                                </td>
+                                <form action="{{ route('admin.assets.destroy', $asset->id) }}" method="POST"
+                                    id="delete-form-{{ $asset->id }}">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="button" onclick="confirmDelete({{ $asset->id }})"
+                                        class="text-red-400 hover:text-red-200 font-bold">
+                                        🗑 Hapus
+                                    </button>
+                                </form>
                             </tr>
                             @endforeach
                         </tbody>
@@ -145,3 +145,22 @@
 </body>
 
 </html>
+<script>
+function confirmDelete(id) {
+    Swal.fire({
+        title: 'Yakin mau hapus?',
+        text: "Data aset ini akan hilang permanen!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Submit form secara manual jika user klik Ya
+            document.getElementById('delete-form-' + id).submit();
+        }
+    })
+}
+</script>

@@ -58,6 +58,9 @@ Route::middleware(['auth'])->group(function () {
     // MENU MARKET / EXCHANGE
     Route::get('/market', [App\Http\Controllers\MarketController::class, 'index'])->name('market.index');
 
+    // MENU PORTOFOLIO
+    Route::get('/portfolio', [App\Http\Controllers\PortfolioController::class, 'index'])->name('portfolio.index');
+
     // 👇 API INTERNAL: Untuk ambil harga aset via Javascript
     Route::get('/api/price/{symbol}', function ($symbol) {
         $asset = App\Models\Asset::where('symbol', $symbol)->first();
