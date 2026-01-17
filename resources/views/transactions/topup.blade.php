@@ -20,9 +20,8 @@
         <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
             <h1 class="text-2xl font-bold text-green-600 mb-6 text-center">💸 Isi Saldo (Top Up)</h1>
 
-            <form action="{{ route('topup.process') }}" method="POST">
+            <form action="{{ route('topup.process') }}" method="POST" enctype="multipart/form-data">
                 @csrf
-
                 <input type="hidden" name="user_id" value="{{ Auth::id() }}">
                 <input type="hidden" name="currency" value="IDR">
 
@@ -33,9 +32,16 @@
                         placeholder="Minimal 10.000" required>
                 </div>
 
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">Bukti Transfer (Struk/SS)</label>
+                    <input type="file" name="payment_proof"
+                        class="w-full px-3 py-2 border rounded shadow-sm bg-gray-50 text-sm" accept="image/*" required>
+                    <p class="text-xs text-gray-500 mt-1">Format: JPG, PNG. Maks 2MB.</p>
+                </div>
+
                 <button type="submit"
                     class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700 transition duration-200">
-                    Konfirmasi Top Up
+                    Kirim Bukti & Top Up
                 </button>
             </form>
         </div>
