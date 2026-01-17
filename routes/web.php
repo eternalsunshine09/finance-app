@@ -52,6 +52,9 @@ Route::middleware(['auth'])->group(function () {
     // Fitur History
     Route::get('/history', [TransactionController::class, 'history'])->name('history');
 
+    // MENU WALLET
+    Route::get('/wallet', [App\Http\Controllers\WalletController::class, 'index'])->name('wallet.index');
+
     // 👇 API INTERNAL: Untuk ambil harga aset via Javascript
     Route::get('/api/price/{symbol}', function ($symbol) {
         $asset = App\Models\Asset::where('symbol', $symbol)->first();
