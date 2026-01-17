@@ -45,4 +45,22 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // User punya banyak Dompet (IDR, USD, dll)
+    public function wallets()
+    {
+        return $this->hasMany(Wallet::class);
+    }
+
+    // User punya banyak Transaksi
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    // User punya banyak Aset di Portofolio
+    public function portfolios()
+    {
+        return $this->hasMany(Portfolio::class);
+    }
 }
