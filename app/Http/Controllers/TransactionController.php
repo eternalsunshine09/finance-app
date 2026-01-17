@@ -106,4 +106,94 @@ class TransactionController extends Controller
             return response()->json(['message' => 'Pembelian Berhasil!', 'portfolio' => $portfolio]);
         });
     }
+
+    // FITUR 3: JUAL ASET (Aset Keluar, Uang Masuk)
+    public function sellAsset(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'asset_symbol' => 'required|exists:assets,symbol',
+            'quantity' => 'required|numeric|min:0.00000001',
+            'price_per_unit' => 'required|numeric',
+        ]);
+
+        return DB::transaction(function () use ($request) {
+            // A. Cek Apakah User Punya Asetnya?
+            $portfolio = Portfolio::where('user_id', $request->user_id)
+                                  ->where('asset_symbol', $request->asset_symbol)
+                                  ->first();
+
+            // Validasi: Kalau gak punya aset ATAU jumlah yg mau dijual lebih besar dari yg dimiliki
+            if (!$portfolio || $portfolio->quantity < $request->quantity) {
+                return response()->json(['message' => 'Gagal Jual: Aset tidak cukup!'], 400);
+            }
+
+            // Hitung uang yang didapat (Revenue)
+            $totalRevenue = $request->quantity * $request->price_per_unit;
+
+            // B. Cari Dompet User (IDR)
+            $wallet = Wallet::where('user_id', $request->user_id)
+                            ->where('currency', 'IDR')
+                            ->firstOrFail();
+
+            // C. Catat Transaksi SELL
+            Transaction::create([
+                'user_id' => $request->user_id,
+                'wallet_id' => $wallet->id,
+                'type' => 'SELL',
+                'asset_symbol' => $request->asset_symbol,
+                'amount_cash' => $totalRevenue, // Uang bertambah (Positif)
+                'amount_asset' => -$request->quantity, // Aset berkurang (Negatif)
+                'price_per_unit' => $request->price_per_unit,
+                'date' => now(),
+            ]);
+
+            // D. Kurangi Aset di Portofolio
+            $portfolio->decrement('quantity', $request->quantity);
+
+            // E. Tambah Uang di Dompet
+            $wallet->increment('balance', $totalRevenue);
+
+            return response()->json([
+                'message' => 'Penjualan Berhasil!', 
+                'sisa_aset' => $portfolio->quantity,
+                'uang_diterima' => $totalRevenue
+            ]);
+        });
+    }
+
+    // FITUR 4: TARIK DANA (Withdraw)
+    public function withdraw(Request $request)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'amount' => 'required|numeric|min:10000',
+            'currency' => 'required|in:IDR,USD',
+        ]);
+
+        return DB::transaction(function () use ($request) {
+            // A. Cek Saldo
+            $wallet = Wallet::where('user_id', $request->user_id)
+                            ->where('currency', $request->currency)
+                            ->first();
+
+            if (!$wallet || $wallet->balance < $request->amount) {
+                return response()->json(['message' => 'Saldo tidak cukup untuk penarikan!'], 400);
+            }
+
+            // B. Catat Transaksi WITHDRAW
+            Transaction::create([
+                'user_id' => $request->user_id,
+                'wallet_id' => $wallet->id,
+                'type' => 'WITHDRAW',
+                'amount_cash' => -$request->amount, // Uang berkurang
+                'date' => now(),
+            ]);
+
+            // C. Potong Saldo
+            $wallet->decrement('balance', $request->amount);
+
+            return response()->json(['message' => 'Penarikan Berhasil!', 'sisa_saldo' => $wallet->balance]);
+        });
+    }
 }
