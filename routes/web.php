@@ -46,7 +46,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Fitur Beli
     Route::get('/buy', [TransactionController::class, 'showBuyForm'])->name('buy');
-    Route::post('/buy', [TransactionController::class, 'buyAsset'])->name('buy.process');
+    Route::post('/buy', [App\Http\Controllers\TransactionController::class, 'processBuy'])->name('buy.process');
 
     // Fitur Jual (YANG TADI HILANG)
     Route::get('/sell/{symbol}', [TransactionController::class, 'showSellForm'])->name('sell');

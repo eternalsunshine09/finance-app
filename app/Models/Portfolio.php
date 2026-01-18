@@ -9,12 +9,10 @@ class Portfolio extends Model
 {
     use HasFactory;
 
-    // INI KUNCINYA: Memberi izin agar semua kolom boleh diisi (kecuali ID)
-    protected $guarded = ['id'];
-
-    // Relasi ke User
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    protected $fillable = [
+        'user_id',
+        'asset_symbol',
+        'quantity',      // ✅ Pastikan ini ada
+        'average_price'
+    ];
 }

@@ -37,8 +37,10 @@ class TransactionController extends Controller
             'amount'       => 'required|numeric|min:0.00000001', 
         ]);
 
-        DB::transaction(function () use ($request) {
-            $user = Auth::user();
+        $user = Auth::user();
+        $totalCost = $request->amount * $request->buy_price;
+
+        DB::transaction(function () use ($request, $user, $totalCost) {
             
             // 1. Ambil Data Wallet & Aset
             $wallet = Wallet::where('id', $request->wallet_id)
@@ -48,10 +50,10 @@ class TransactionController extends Controller
                             
             $asset = Asset::where('symbol', $request->asset_symbol)->firstOrFail();
 
-            // 🔥 VALIDASI TIPE ASET VS MATA UANG DOMPET 🔥
+            // Validasi Mata Uang
             if ($asset->type == 'Crypto' && $wallet->currency != 'USD') {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'wallet_id' => "Aset Crypto ({$asset->symbol}) wajib dibeli pakai Saldo USD. Silakan pilih dompet USD atau Tukar Valas dulu."
+                    'wallet_id' => "Aset Crypto ({$asset->symbol}) wajib dibeli pakai Saldo USD."
                 ]);
             }
 
@@ -60,9 +62,6 @@ class TransactionController extends Controller
                     'wallet_id' => "Saham Indonesia ({$asset->symbol}) wajib dibeli pakai Saldo IDR."
                 ]);
             }
-
-            // Hitung Total
-            $totalCost = $request->amount * $request->buy_price;
 
             // Cek Saldo
             if ($wallet->balance < $totalCost) {
@@ -75,20 +74,27 @@ class TransactionController extends Controller
             // Potong Saldo
             $wallet->decrement('balance', $totalCost);
 
-            // Update Portofolio
+            // ---------------------------------------------------------
+            // 🔥 PERBAIKAN DI SINI (Ganti 'amount' jadi 'quantity') 🔥
+            // ---------------------------------------------------------
+            
+            // Cari atau Buat Portfolio Baru
             $portfolio = Portfolio::firstOrCreate(
                 ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
-                ['amount' => 0, 'average_price' => 0]
+                ['quantity' => 0, 'average_price' => 0] // ✅ Ganti 'amount' jadi 'quantity'
             );
 
-            // Hitung Average Price (Average Down)
-            $oldTotalVal = $portfolio->amount * $portfolio->average_price;
+            // Hitung Average Price (Average Down Logic)
+            // Gunakan $portfolio->quantity (bukan amount)
+            $oldTotalVal = $portfolio->quantity * $portfolio->average_price; 
             $newTotalVal = $oldTotalVal + $totalCost;
-            $newAmount   = $portfolio->amount + $request->amount;
-            $newAvgPrice = $newAmount > 0 ? $newTotalVal / $newAmount : 0;
+            $newQuantity = $portfolio->quantity + $request->amount; // Ditambah jumlah beli baru
+            
+            $newAvgPrice = $newQuantity > 0 ? $newTotalVal / $newQuantity : 0;
 
+            // Update Database Portfolio
             $portfolio->update([
-                'amount' => $newAmount,
+                'quantity' => $newQuantity, // ✅ Ganti 'amount' jadi 'quantity'
                 'average_price' => $newAvgPrice
             ]);
 
@@ -99,7 +105,7 @@ class TransactionController extends Controller
                 'type' => 'BUY',
                 'status' => 'approved',
                 'asset_symbol' => $request->asset_symbol,
-                'amount' => $request->amount,
+                'amount' => $request->amount, // Di tabel Transaction tetap 'amount' (sesuai migrasi awal)
                 'price_per_unit' => $request->buy_price,
                 'amount_cash' => -$totalCost,
                 'description' => "Beli " . $request->asset_symbol,
@@ -166,51 +172,48 @@ class TransactionController extends Controller
     // ===========================
     // 3. FITUR TOP UP (UPDATED)
     // ===========================
-    public function showTopUpForm()
+public function showTopUpForm()
     {
         $user = Auth::user();
         
-        // Ambil semua dompet user (walaupun saldo 0, tetap bisa di-topup)
+        // Ambil semua dompet (termasuk yang saldo 0)
         $wallets = Wallet::where('user_id', $user->id)->get();
 
         return view('transactions.topup', compact('wallets'));
     }
 
-    public function topUp(Request $request)
+public function topUp(Request $request)
     {
         $request->validate([
-            'wallet_id'     => 'required|exists:wallets,id', // Wajib pilih dompet tujuan
-            'amount'        => 'required|numeric|min:10000',
+            'wallet_id'     => 'required|exists:wallets,id',
+            // 🔥 UPDATE: min:0.01 agar bisa input desimal kecil (misal $0.7)
+            'amount'        => 'required|numeric|min:0.01', 
             'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
         ]);
 
         DB::transaction(function () use ($request) {
             $user = Auth::user();
-
-            // 1. Simpan Foto
+            
+            // Simpan Foto
             $proofPath = $request->file('payment_proof')->store('receipts', 'public');
 
-            // 2. Ambil Dompet Tujuan
-            $wallet = Wallet::where('id', $request->wallet_id)
-                            ->where('user_id', $user->id)
-                            ->firstOrFail();
+            // Ambil Dompet
+            $wallet = Wallet::findOrFail($request->wallet_id);
 
-            // 3. Catat Transaksi Pending
+            // Buat Transaksi (Status Pending)
             Transaction::create([
                 'user_id'       => $user->id,
-                'wallet_id'     => $wallet->id, // Link ke dompet spesifik
+                'wallet_id'     => $wallet->id,
                 'type'          => 'TOPUP',
                 'amount_cash'   => $request->amount,
                 'date'          => now(),
-                'status'        => 'pending',
-                'description'   => 'Top Up Saldo ' . $wallet->bank_name,
+                'status'        => 'pending', // Menunggu Admin
+                'description'   => 'Top Up ' . $wallet->currency . ' via Transfer',
                 'payment_proof' => $proofPath 
             ]);
-
-            // Saldo TIDAK bertambah di sini. Nunggu Admin Approve.
         });
 
-        return redirect()->route('wallet.index')->with('success', 'Permintaan Top Up dikirim! Mohon tunggu verifikasi Admin.');
+        return redirect()->route('wallet.index')->with('success', 'Top Up berhasil diajukan! Admin akan memverifikasi bukti transfer Anda.');
     }
 
     // ===========================
