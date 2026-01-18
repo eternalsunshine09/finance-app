@@ -6,7 +6,9 @@
     <p class="text-slate-400 mt-1">Kelola produk investasi dan nilai tukar mata uang.</p>
 </div>
 
+{{-- SECTION: KURS VALAS (Tidak Berubah) --}}
 <div class="bg-indigo-900/40 border border-indigo-500/30 rounded-3xl p-6 mb-8 shadow-lg relative overflow-hidden">
+    {{-- ... (Kode Kurs Valas biarkan tetap sama) ... --}}
     <div class="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl"></div>
 
     <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
@@ -18,7 +20,6 @@
             <div>
                 <p class="text-indigo-300 text-xs font-bold uppercase tracking-widest">Kurs Aktif Saat Ini</p>
                 @php
-                // Ambil kurs terakhir dari DB
                 $currentRate = \App\Models\ExchangeRate::where('from_currency', 'USD')->latest()->first()->rate ??
                 15500;
                 @endphp
@@ -30,7 +31,6 @@
         </div>
 
         <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-
             <form action="{{ route('admin.exchange.update') }}" method="POST"
                 class="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl border border-slate-700">
                 @csrf
@@ -56,6 +56,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
+    {{-- FORM TAMBAH ASET --}}
     <div class="lg:col-span-1">
         <div class="bg-slate-800 rounded-3xl p-6 border border-slate-700 shadow-xl sticky top-6">
             <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -99,12 +100,15 @@
                     <input type="text" name="api_id" placeholder="Ex: bitcoin (CoinGecko)"
                         class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:outline-none text-sm">
                 </div>
+
+                {{-- 🔥 PERBAIKAN DI SINI: Tambahkan step="any" --}}
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Harga Awal (Rp)</label>
-                    <input type="number" name="current_price" placeholder="0"
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Harga Awal (Rp/$)</label>
+                    <input type="number" step="any" name="current_price" placeholder="0.00"
                         class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:outline-none"
                         required>
                 </div>
+
                 <button type="submit"
                     class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3.5 rounded-xl shadow-lg transition transform hover:-translate-y-1">
                     Simpan Data
@@ -113,6 +117,7 @@
         </div>
     </div>
 
+    {{-- TABEL DATA ASET --}}
     <div class="lg:col-span-2">
         <div class="bg-slate-800 rounded-3xl border border-slate-700 shadow-xl overflow-hidden">
             <div class="overflow-x-auto">
@@ -121,7 +126,7 @@
                         <tr>
                             <th class="px-6 py-4">Aset</th>
                             <th class="px-6 py-4">Kategori</th>
-                            <th class="px-6 py-4 text-right">Harga (IDR)</th>
+                            <th class="px-6 py-4 text-right">Harga (IDR/USD)</th>
                             <th class="px-6 py-4 text-center">Aksi</th>
                         </tr>
                     </thead>
@@ -146,11 +151,12 @@
                                 <span
                                     class="px-3 py-1 rounded-full text-xs font-bold border {{ $cls }}">{{ $asset->type }}</span>
                             </td>
-                            <td class="px-6 py-4">
-                                <div class="flex items-center gap-2">
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex items-center justify-end gap-2">
                                     @if($asset->type == 'Crypto')
                                     {{-- Logo Dollar & Harga USD --}}
                                     <span class="text-emerald-400 font-bold">$</span>
+                                    {{-- Format 2 Desimal --}}
                                     <span
                                         class="font-mono text-white">{{ number_format($asset->current_price, 2, '.', ',') }}</span>
                                     @else

@@ -39,49 +39,64 @@
     <div class="max-w-6xl mx-auto px-6 -mt-16 relative z-20 space-y-8">
 
         {{-- 1. MENU AKSI CEPAT (QUICK ACTIONS) --}}
-        <div class="bg-white p-4 rounded-3xl shadow-lg border border-slate-100">
+        <div class="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 mb-8">
+            <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Menu Transaksi</h3>
+
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
 
-                {{-- Tombol Beli Aset --}}
-                <a href="{{ route('buy') }}"
-                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition group">
+                {{-- 1. TOMBOL TOP UP (Gantikan Posisi Lama) --}}
+                <a href="{{ route('topup') }}"
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition group hover:-translate-y-1">
                     <div
-                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition text-2xl text-emerald-600">
+                        📥
+                    </div>
+                    <span class="font-bold text-sm">Isi Saldo</span>
+                </a>
+
+                {{-- 2. TOMBOL WITHDRAW (Baru) --}}
+                <a href="{{ route('withdraw') }}"
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 transition group hover:-translate-y-1">
+                    <div
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition text-2xl text-rose-600">
+                        📤
+                    </div>
+                    <span class="font-bold text-sm">Tarik Dana</span>
+                </a>
+
+                {{-- 3. TOMBOL BELI ASET (Tetap) --}}
+                <a href="{{ route('buy') }}"
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition group hover:-translate-y-1">
+                    <div
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition text-2xl text-indigo-600">
                         🛒
                     </div>
                     <span class="font-bold text-sm">Beli Aset</span>
                 </a>
 
-                {{-- Tombol Tukar Valas --}}
+                {{-- 4. TOMBOL TUKAR VALAS (Tetap Penting) --}}
                 <a href="{{ route('exchange.index') }}"
-                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition group">
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition group hover:-translate-y-1">
                     <div
-                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 transition text-2xl text-amber-600">
                         💱
                     </div>
                     <span class="font-bold text-sm">Tukar Valas</span>
                 </a>
 
-                {{-- Tombol Riwayat --}}
+            </div>
+
+            {{-- Tombol Tambahan Kecil (Opsional) --}}
+            <div class="flex justify-center gap-4 mt-6 pt-4 border-t border-slate-50">
                 <a href="{{ route('wallet.history') }}"
-                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-700 transition group">
-                    <div
-                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
-                        📜
-                    </div>
-                    <span class="font-bold text-sm">Riwayat</span>
+                    class="text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition">
+                    <i class="fas fa-history"></i> Lihat Riwayat Lengkap
                 </a>
-
-                {{-- Tombol Tambah Akun --}}
+                <span class="text-slate-300">|</span>
                 <button @click="showCreateModal = true"
-                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition group">
-                    <div
-                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
-                        ➕
-                    </div>
-                    <span class="font-bold text-sm">Buat Akun</span>
+                    class="text-xs font-bold text-slate-400 hover:text-indigo-600 flex items-center gap-1 transition">
+                    <i class="fas fa-plus"></i> Buat Akun Baru
                 </button>
-
             </div>
         </div>
 
@@ -93,69 +108,72 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($wallets as $w)
-                {{-- Logic Warna Kartu: USD (Hijau/Biru Tua), IDR (Biru/Indigo) --}}
                 @php
                 $cardGradient = $w->currency == 'USD'
                 ? 'bg-gradient-to-br from-teal-600 to-emerald-800'
                 : 'bg-gradient-to-br from-blue-600 to-indigo-800';
-
-                $icon = $w->currency == 'USD' ? '🇺🇸' : '🇮🇩';
                 @endphp
 
                 <div
-                    class="{{ $cardGradient }} rounded-3xl p-6 text-white shadow-lg hover:-translate-y-1 hover:shadow-2xl transition duration-300 relative overflow-hidden group h-56 flex flex-col justify-between">
+                    class="{{ $cardGradient }} rounded-3xl p-6 text-white shadow-lg hover:-translate-y-1 hover:shadow-2xl transition duration-300 relative overflow-hidden flex flex-col justify-between h-64 group">
 
-                    {{-- Dekorasi Kartu --}}
+                    {{-- Dekorasi --}}
                     <div
                         class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl">
                     </div>
 
-                    {{-- Atas Kartu --}}
-                    <div class="relative z-10 flex justify-between items-start">
-                        <div>
-                            <p class="text-xs font-bold uppercase opacity-70 tracking-widest">{{ $w->bank_name }}</p>
-                            <h4 class="font-bold text-xl mt-1">{{ $w->account_name }}</h4>
-                        </div>
-                        <span
-                            class="text-2xl bg-white/20 w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm">
-                            {{ $icon }}
-                        </span>
-                    </div>
-
-                    {{-- Chip Kartu (Hiasan) --}}
-                    <div class="relative z-10 flex items-center gap-2 opacity-80 my-2">
-                        <div
-                            class="w-10 h-7 border border-yellow-400/50 rounded bg-yellow-400/20 flex items-center justify-center">
-                            <div class="w-6 h-4 border border-yellow-400/50 rounded-sm"></div>
-                        </div>
-                        <i class="fas fa-wifi rotate-90"></i>
-                    </div>
-
-                    {{-- Bawah Kartu --}}
+                    {{-- Bagian Atas --}}
                     <div class="relative z-10">
-                        <p class="font-mono opacity-80 text-sm tracking-widest mb-1">
-                            {{ chunk_split($w->account_number ?? '0000000000', 4, ' ') }}
-                        </p>
-                        <div class="flex justify-between items-end">
+                        <div class="flex justify-between items-start">
                             <div>
-                                <p class="text-xs font-bold uppercase opacity-70">Balance</p>
-                                <p class="text-2xl font-black tracking-tight">
-                                    {{ $w->currency == 'USD' ? '$' : 'Rp' }}
-                                    {{ number_format($w->balance, 0, ',', '.') }}
+                                <p class="text-xs font-bold uppercase opacity-70 tracking-widest">{{ $w->bank_name }}
                                 </p>
+                                <h4 class="font-bold text-xl mt-1">{{ $w->account_name }}</h4>
                             </div>
+                            <span class="bg-white/20 px-3 py-1 rounded-lg text-xs font-bold backdrop-blur-sm">
+                                {{ $w->currency }}
+                            </span>
+                        </div>
 
-                            {{-- Tombol Kecil di Kartu --}}
-                            <div class="flex gap-2">
-                                <a href="{{ route('wallet.edit', $w->id) }}"
-                                    class="w-8 h-8 rounded-full bg-white/20 hover:bg-white hover:text-indigo-900 flex items-center justify-center transition backdrop-blur-md">
-                                    <i class="fas fa-pencil-alt text-xs"></i>
-                                </a>
-                                <a href="{{ route('wallet.history', ['wallet_id' => $w->id]) }}"
-                                    class="w-8 h-8 rounded-full bg-white/20 hover:bg-white hover:text-indigo-900 flex items-center justify-center transition backdrop-blur-md">
-                                    <i class="fas fa-history text-xs"></i>
-                                </a>
-                            </div>
+                        <div class="mt-6">
+                            <p class="font-mono opacity-80 text-sm tracking-widest">
+                                {{ chunk_split($w->account_number ?? '0000', 4, ' ') }}
+                            </p>
+                            <p class="text-2xl font-black tracking-tight mt-1">
+                                {{-- 🔥 GANTI JADI INI (Angka 2 desimal) --}}
+                                {{ $w->currency == 'USD' ? '$' : 'Rp' }} {{ number_format($w->balance, 2, ',', '.') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- 🔥 UPDATE: Bagian Tombol Aksi --}}
+                    <div class="relative z-10 mt-auto pt-4 border-t border-white/20 flex justify-between items-center">
+
+                        {{-- Tombol Lihat Detail --}}
+                        <a href="{{ route('wallet.show', $w->id) }}"
+                            class="flex items-center gap-2 text-xs font-bold bg-white/20 hover:bg-white hover:text-indigo-900 py-2 px-4 rounded-full transition backdrop-blur-md">
+                            <i class="fas fa-eye"></i> Lihat Mutasi
+                        </a>
+
+                        <div class="flex gap-2">
+                            {{-- Tombol Edit --}}
+                            <a href="{{ route('wallet.edit', $w->id) }}"
+                                class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-yellow-400 hover:text-yellow-900 transition"
+                                title="Edit">
+                                <i class="fas fa-pencil-alt text-xs"></i>
+                            </a>
+
+                            {{-- Tombol Hapus --}}
+                            <form action="{{ route('wallet.destroy', $w->id) }}" method="POST"
+                                onsubmit="return confirm('Yakin ingin menghapus dompet ini? Riwayat transaksi mungkin akan hilang.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit"
+                                    class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-red-500 hover:text-white transition"
+                                    title="Hapus">
+                                    <i class="fas fa-trash text-xs"></i>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>

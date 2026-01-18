@@ -12,15 +12,26 @@ class WalletController extends Controller
     // 1. HALAMAN UTAMA (Hanya menampilkan kartu dompet)
     public function index()
     {
-        $user = Auth::user();
-        
-        // Ambil dompet
-        $wallets = Wallet::where('user_id', $user->id)->get();
-        
-        // Hitung total saldo (IDR only for simplicity logic)
-        $totalBalance = $wallets->where('currency', 'IDR')->sum('balance');
+        $wallets = Wallet::where('user_id', Auth::id())->get();
+        // Hitung total saldo (opsional jika dipakai di view)
+        $totalBalance = $wallets->sum(function($w) {
+            return $w->currency == 'USD' ? $w->balance * 16000 : $w->balance;
+        });
 
         return view('wallet.index', compact('wallets', 'totalBalance'));
+    }
+
+    // --- 1. FITUR SHOW (LIHAT RIWAYAT SPESIFIK) ---
+    public function show($id)
+    {
+        $wallet = Wallet::where('user_id', Auth::id())->findOrFail($id);
+        
+        // Ambil transaksi KHUSUS dompet ini
+        $transactions = Transaction::where('wallet_id', $id)
+                                   ->orderBy('created_at', 'desc')
+                                   ->paginate(10);
+
+        return view('wallet.show', compact('wallet', 'transactions'));
     }
 
     // 2. HALAMAN KHUSUS RIWAYAT (Bisa difilter per wallet)

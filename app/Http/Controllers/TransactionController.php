@@ -172,48 +172,56 @@ class TransactionController extends Controller
     // ===========================
     // 3. FITUR TOP UP (UPDATED)
     // ===========================
-public function showTopUpForm()
-    {
-        $user = Auth::user();
-        
-        // Ambil semua dompet (termasuk yang saldo 0)
-        $wallets = Wallet::where('user_id', $user->id)->get();
+    public function showTopUpForm()
+        {
+            $user = Auth::user();
+            
+            // Ambil semua dompet (termasuk yang saldo 0)
+            $wallets = Wallet::where('user_id', $user->id)->get();
 
-        return view('transactions.topup', compact('wallets'));
-    }
-
-public function topUp(Request $request)
+            return view('transactions.topup', compact('wallets'));
+        } 
+    
+        public function topUp(Request $request)
     {
         $request->validate([
             'wallet_id'     => 'required|exists:wallets,id',
-            // 🔥 UPDATE: min:0.01 agar bisa input desimal kecil (misal $0.7)
-            'amount'        => 'required|numeric|min:0.01', 
-            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
+            'amount'        => 'required|numeric|min:1',
+            // Gambar boleh dibuat nullable (opsional) kalau cuma pencatatan
+            'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', 
         ]);
 
         DB::transaction(function () use ($request) {
             $user = Auth::user();
             
-            // Simpan Foto
-            $proofPath = $request->file('payment_proof')->store('receipts', 'public');
+            // 1. Cek Upload Bukti (Opsional)
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $proofPath = $request->file('payment_proof')->store('receipts', 'public');
+            }
 
-            // Ambil Dompet
-            $wallet = Wallet::findOrFail($request->wallet_id);
+            // 2. Ambil Dompet Tujuan
+            $wallet = Wallet::where('id', $request->wallet_id)
+                            ->where('user_id', $user->id)
+                            ->firstOrFail();
 
-            // Buat Transaksi (Status Pending)
+            // 3. 🔥 UPDATE: LANGSUNG TAMBAH SALDO 🔥
+            $wallet->increment('balance', $request->amount);
+
+            // 4. Catat Transaksi (Status Langsung 'approved' / 'success')
             Transaction::create([
                 'user_id'       => $user->id,
                 'wallet_id'     => $wallet->id,
                 'type'          => 'TOPUP',
                 'amount_cash'   => $request->amount,
                 'date'          => now(),
-                'status'        => 'pending', // Menunggu Admin
-                'description'   => 'Top Up ' . $wallet->currency . ' via Transfer',
+                'status'        => 'approved', // ✅ Langsung Sukses
+                'description'   => 'Setor Tunai / Top Up Manual',
                 'payment_proof' => $proofPath 
             ]);
         });
 
-        return redirect()->route('wallet.index')->with('success', 'Top Up berhasil diajukan! Admin akan memverifikasi bukti transfer Anda.');
+        return redirect()->route('wallet.index')->with('success', 'Saldo berhasil ditambahkan ke dompet!');
     }
 
     // ===========================

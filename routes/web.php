@@ -67,6 +67,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/wallet/history', [App\Http\Controllers\WalletController::class, 'history'])->name('wallet.history');
     
     // Halaman Edit & Update & Destroy
+    Route::resource('wallet', App\Http\Controllers\WalletController::class);
     Route::get('/wallet/{id}/edit', [App\Http\Controllers\WalletController::class, 'edit'])->name('wallet.edit');
     Route::put('/wallet/{id}', [App\Http\Controllers\WalletController::class, 'update'])->name('wallet.update');
     Route::delete('/wallet/{id}', [App\Http\Controllers\WalletController::class, 'destroy'])->name('wallet.destroy');
