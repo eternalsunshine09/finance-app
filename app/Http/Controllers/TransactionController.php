@@ -150,6 +150,56 @@ class TransactionController extends Controller
     }
 
     // ===========================
+    // 3. FITUR TOP UP (UPDATED)
+    // ===========================
+    public function showTopUpForm()
+    {
+        $user = Auth::user();
+        
+        // Ambil semua dompet user (walaupun saldo 0, tetap bisa di-topup)
+        $wallets = Wallet::where('user_id', $user->id)->get();
+
+        return view('transactions.topup', compact('wallets'));
+    }
+
+    public function topUp(Request $request)
+    {
+        $request->validate([
+            'wallet_id'     => 'required|exists:wallets,id', // Wajib pilih dompet tujuan
+            'amount'        => 'required|numeric|min:10000',
+            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
+        ]);
+
+        DB::transaction(function () use ($request) {
+            $user = Auth::user();
+
+            // 1. Simpan Foto
+            $proofPath = $request->file('payment_proof')->store('receipts', 'public');
+
+            // 2. Ambil Dompet Tujuan
+            $wallet = Wallet::where('id', $request->wallet_id)
+                            ->where('user_id', $user->id)
+                            ->firstOrFail();
+
+            // 3. Catat Transaksi Pending
+            Transaction::create([
+                'user_id'       => $user->id,
+                'wallet_id'     => $wallet->id, // Link ke dompet spesifik
+                'type'          => 'TOPUP',
+                'amount_cash'   => $request->amount,
+                'date'          => now(),
+                'status'        => 'pending',
+                'description'   => 'Top Up Saldo ' . $wallet->bank_name,
+                'payment_proof' => $proofPath 
+            ]);
+
+            // Saldo TIDAK bertambah di sini. Nunggu Admin Approve.
+        });
+
+        return redirect()->route('wallet.index')->with('success', 'Permintaan Top Up dikirim! Mohon tunggu verifikasi Admin.');
+    }
+
+    // ===========================
     // 4. FITUR WITHDRAW (TARIK DANA)
     // ===========================
     public function showWithdrawForm()
