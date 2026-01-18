@@ -14,145 +14,97 @@ use Illuminate\Support\Facades\Auth;
 class TransactionController extends Controller
 {
     // ===========================
-    // 1. FITUR TOP UP
+    // 1. FITUR BELI ASET (FIXED)
     // ===========================
-    public function showTopUpForm()
+    
+    public function showBuyForm()
     {
-        return view('transactions.topup');
-    }
-
-    public function topUp(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'amount' => 'required|numeric|min:10000',
-            'currency' => 'required|in:IDR,USD',
-            // 👇 Validasi Foto (Wajib ada, harus gambar, max 2MB)
-            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048', 
-        ]);
-
-        DB::transaction(function () use ($request) {
-            
-            // 1. Simpan Foto ke Folder 'public/receipts'
-            // Nanti tersimpan sebagai: storage/app/public/receipts/acak.jpg
-            $proofPath = $request->file('payment_proof')->store('receipts', 'public');
-
-            $wallet = Wallet::firstOrCreate(
-                ['user_id' => $request->user_id, 'currency' => $request->currency],
-                ['balance' => 0]
-            );
-
-            Transaction::create([
-                'user_id' => $request->user_id,
-                'wallet_id' => $wallet->id,
-                'type' => 'TOPUP',
-                'amount_cash' => $request->amount,
-                'date' => now(),
-                'status' => 'pending',
-                // 👇 Simpan Path Foto ke Database
-                'payment_proof' => $proofPath 
-            ]);
-
-            // Ingat: Jangan increment saldo di sini! (Masih dikomentari)
-            // $wallet->increment('balance', $request->amount); 
-        });
-
-        return redirect()->route('dashboard')->with('success', 'Bukti transfer berhasil diupload! Menunggu verifikasi Admin.');
-    }
-
-    // ===========================
-    // 2. FITUR BELI ASET
-    // ===========================
-    public function showBuyForm(Request $request) // Tambahkan Request $request
-    {
-        $assets = \App\Models\Asset::all();
+        $user = Auth::user();
         
-        // Ambil parameter '?asset=BTC' dari URL (kalau ada)
-        $selectedAsset = $request->query('asset'); 
+        // 1. Ambil Data Aset (Urutkan nama)
+        $assets = Asset::orderBy('name')->get();
+        
+        // 2. Ambil Data Dompet (Hanya yang punya saldo)
+        $wallets = Wallet::where('user_id', $user->id)
+                         ->get();
 
-        // Kirim ke View
-        return view('transactions.buy', compact('assets', 'selectedAsset'));
+        // Pastikan nama file view sesuai folder kamu: 'transactions.buy'
+        return view('transactions.buy', compact('assets', 'wallets'));
     }
 
-    public function buyAsset(Request $request)
+    public function processBuy(Request $request)
     {
-        // 1. VALIDASI
         $request->validate([
-            'buy_price' => 'required|numeric|min:1',
+            'wallet_id'    => 'required|exists:wallets,id', // Wajib pilih dompet
             'asset_symbol' => 'required|exists:assets,symbol',
-            'amount' => 'required|numeric|min:0.00000001',
-            // ❌ HAPUS BARIS DI BAWAH INI (Ini penyebab errornya)
-            // 'price_per_unit' => 'required|numeric', 
+            'buy_price'    => 'required|numeric|min:0',
+            'amount'       => 'required|numeric|min:0.00000001', 
         ]);
 
-        $userId = Auth::id(); 
+        $user = Auth::user();
+        $totalCost = $request->amount * $request->buy_price;
 
-        DB::transaction(function () use ($request, $userId) {
+        DB::transaction(function () use ($request, $user, $totalCost) {
             
-            $transactionDate = $request->custom_date ? \Carbon\Carbon::parse($request->custom_date) : now();
-            
-            // Kita pakai 'buy_price' dari input user
-            $currentPrice = $request->buy_price; 
-            
-            $totalCost = $request->amount * $currentPrice;
+            // A. Kunci Dompet yang Dipilih
+            $wallet = Wallet::where('id', $request->wallet_id)
+                            ->where('user_id', $user->id)
+                            ->lockForUpdate()
+                            ->firstOrFail();
 
-            // Update Wallet
-            $wallet = Wallet::where('user_id', $userId)->first();
-            
-            if (!$wallet || $wallet->balance < $totalCost) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Saldo tidak cukup!']);
+            // B. Cek Kecukupan Saldo
+            if ($wallet->balance < $totalCost) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount' => 'Saldo di ' . $wallet->account_name . ' tidak cukup! (Kurang Rp ' . number_format($totalCost - $wallet->balance) . ')'
+                ]);
             }
-            
+
+            // C. Potong Saldo
             $wallet->decrement('balance', $totalCost);
 
-            // Update Portofolio
-            $portfolio = \App\Models\Portfolio::firstOrCreate(
-                ['user_id' => $userId, 'asset_symbol' => $request->asset_symbol],
-                ['quantity' => 0, 'average_buy_price' => 0]
+            // D. Update Portofolio (Average Down Logic)
+            $portfolio = Portfolio::firstOrCreate(
+                ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
+                ['amount' => 0, 'average_price' => 0]
             );
 
-            $oldTotalValue = $portfolio->quantity * $portfolio->average_buy_price;
-            $newTotalValue = $oldTotalValue + $totalCost;
-            $newQuantity = $portfolio->quantity + $request->amount;
-            
-            $newAvg = $newQuantity > 0 ? ($newTotalValue / $newQuantity) : 0;
+            $oldTotalVal = $portfolio->amount * $portfolio->average_price;
+            $newTotalVal = $oldTotalVal + $totalCost;
+            $newAmount   = $portfolio->amount + $request->amount;
+            $newAvgPrice = $newAmount > 0 ? $newTotalVal / $newAmount : 0;
 
             $portfolio->update([
-                'quantity' => $newQuantity,
-                'average_buy_price' => $newAvg
+                'amount' => $newAmount,
+                'average_price' => $newAvgPrice
             ]);
 
-            // Simpan Transaksi
-            \App\Models\Transaction::create([
-                'user_id' => $userId,
-                'wallet_id' => $wallet->id,
+            // E. Catat Transaksi
+            Transaction::create([
+                'user_id' => $user->id,
+                'wallet_id' => $wallet->id, // Catat wallet ID
                 'type' => 'BUY',
-                'amount_cash' => -$totalCost, 
-                'amount_asset' => $request->amount,
+                'status' => 'approved',
                 'asset_symbol' => $request->asset_symbol,
-                'date' => $transactionDate,
-                'status' => 'approved'
+                'amount' => $request->amount,
+                'price_per_unit' => $request->buy_price,
+                'amount_cash' => -$totalCost,
+                'description' => "Beli " . $request->asset_symbol,
+                'created_at' => $request->custom_date ?? now(),
             ]);
         });
 
-        return redirect()->route('dashboard')->with('success', 'Pembelian berhasil dicatat!');
+        return redirect()->route('wallet.index')->with('success', 'Pembelian Aset Berhasil!');
     }
 
     // ===========================
-    // 3. FITUR JUAL ASET
+    // 2. API HELPER (PENTING BUAT JS)
     // ===========================
-    public function showSellForm($symbol)
+    public function getPrice($symbol)
     {
-        $userId = Auth::id();
-        $portfolio = Portfolio::where('user_id', $userId)
-                              ->where('asset_symbol', $symbol)
-                              ->first();
-
-        if (!$portfolio || $portfolio->quantity <= 0) {
-            return redirect()->route('dashboard')->with('error', 'Kamu tidak memiliki aset '.$symbol);
-        }
-
-        return view('transactions.sell', compact('portfolio'));
+        $asset = Asset::where('symbol', $symbol)->first();
+        return response()->json([
+            'price' => $asset ? $asset->current_price : 0
+        ]);
     }
 
     public function sellAsset(Request $request)
@@ -214,29 +166,25 @@ class TransactionController extends Controller
         ]);
 
         DB::transaction(function () use ($request) {
-            // A. Cek Saldo & Dompet
             $wallet = Wallet::where('user_id', $request->user_id)
                             ->where('currency', $request->currency)
                             ->first();
 
-            // Validasi: Apakah saldo cukup?
             if (!$wallet || $wallet->balance < $request->amount) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'amount' => 'Saldo tidak cukup untuk penarikan ini!',
                 ]);
             }
 
-            // B. Catat Transaksi (Status: PENDING)
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
                 'type' => 'WITHDRAW',
-                'amount_cash' => -$request->amount, // Negatif karena uang keluar
+                'amount_cash' => -$request->amount,
                 'date' => now(),
                 'status' => 'pending' 
             ]);
 
-            // C. POTONG SALDO LANGSUNG (Agar tidak bisa dipake beli saham)
             $wallet->decrement('balance', $request->amount);
         });
 
@@ -250,8 +198,6 @@ class TransactionController extends Controller
     {
         $userId = Auth::id();
         
-        // Ambil data transaksi milik user, urutkan dari yang terbaru
-        // paginate(10) artinya cuma ambil 10 data per halaman
         $transactions = Transaction::where('user_id', $userId)
                                    ->orderBy('created_at', 'desc')
                                    ->paginate(10);

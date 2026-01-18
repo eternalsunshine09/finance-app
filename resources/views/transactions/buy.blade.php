@@ -1,121 +1,231 @@
 @extends('layouts.app')
 
 @section('title', 'Beli Aset')
-@section('header', '🛒 Beli Aset Investasi')
 
 @section('content')
+<div class="min-h-screen bg-slate-50 py-12">
+    <div class="max-w-3xl mx-auto px-4">
 
-<div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        {{-- Header --}}
+        <div class="mb-8 text-center">
+            <h1 class="text-3xl font-black text-slate-800 tracking-tight">🛒 Beli Aset Investasi</h1>
+            <p class="text-slate-500 mt-2">Pilih aset potensial dan bayar menggunakan saldo dompetmu.</p>
+        </div>
 
-    @if ($errors->any())
-    <div class="bg-red-100 text-red-700 px-4 py-3 rounded mb-6 text-sm">
-        ⚠️ {{ $errors->first() }}
+        @if ($errors->any())
+        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-r shadow-sm">
+            <p class="font-bold">Gagal Memproses:</p>
+            <p>{{ $errors->first() }}</p>
+        </div>
+        @endif
+
+        <form action="{{ route('buy.process') }}" method="POST" class="space-y-6">
+            @csrf
+
+            {{-- SECTION 1: SUMBER DANA --}}
+            <div class="bg-white p-6 rounded-3xl shadow-lg border border-slate-100 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 z-0"></div>
+
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4 relative z-10">1. Sumber Dana
+                </h3>
+
+                <div class="relative z-10">
+                    <label class="block text-slate-700 font-bold mb-2">Bayar Menggunakan:</label>
+                    <div class="relative">
+                        <select name="wallet_id" id="walletSelect"
+                            class="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-slate-700 appearance-none cursor-pointer"
+                            required>
+                            @foreach($wallets as $wallet)
+                            <option value="{{ $wallet->id }}" data-balance="{{ $wallet->balance }}"
+                                data-currency="{{ $wallet->currency }}">
+                                {{ $wallet->bank_name }} - {{ $wallet->account_name }}
+                            </option>
+                            @endforeach
+                        </select>
+                        <div class="absolute left-4 top-4 text-xl">💳</div>
+                        <div class="absolute right-4 top-4 text-slate-400"><i class="fas fa-chevron-down"></i></div>
+                    </div>
+
+                    {{-- Info Saldo --}}
+                    <div
+                        class="mt-3 flex justify-between items-center bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                        <span class="text-xs text-indigo-600 font-bold">Saldo Tersedia:</span>
+                        <span id="walletBalanceDisplay" class="font-black text-indigo-700 text-lg">Rp 0</span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- SECTION 2: RINCIAN ASET --}}
+            <div class="bg-white p-6 rounded-3xl shadow-lg border border-slate-100">
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">2. Rincian Pembelian</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {{-- Pilih Aset --}}
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Aset Tujuan</label>
+                        <div class="relative">
+                            <select name="asset_symbol" id="assetSelect"
+                                class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-indigo-500 font-bold text-slate-800"
+                                required>
+                                <option value="" data-price="0">-- Pilih --</option>
+                                @foreach($assets as $asset)
+                                <option value="{{ $asset->symbol }}">{{ $asset->symbol }} - {{ $asset->name }}</option>
+                                @endforeach
+                            </select>
+                            <div class="absolute left-3.5 top-3.5 text-slate-400"><i class="fas fa-chart-pie"></i></div>
+                        </div>
+                    </div>
+
+                    {{-- Harga Per Unit --}}
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Harga Pasar (Unit)</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-3 text-slate-400 font-bold">Rp</span>
+                            <input type="number" step="any" name="buy_price" id="buyPriceInput"
+                                class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-600 focus:bg-white transition"
+                                placeholder="0" required>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Input Jumlah --}}
+                <div class="mt-6">
+                    <label class="block text-xs font-bold text-emerald-600 uppercase mb-2">Jumlah yang dibeli
+                        (Lot/Coin)</label>
+                    <div class="relative">
+                        <input type="number" step="0.00000001" name="amount" id="amountInput"
+                            class="w-full pl-4 pr-4 py-4 border-2 border-emerald-100 rounded-xl font-mono text-2xl font-bold text-slate-800 focus:border-emerald-500 focus:ring-0 transition placeholder-slate-300"
+                            placeholder="0.00" required>
+                        <span
+                            class="absolute right-4 top-5 text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">UNIT</span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- SECTION 3: TOTAL & SUBMIT --}}
+            <div class="bg-slate-800 p-6 rounded-3xl shadow-xl text-white relative overflow-hidden">
+                <div class="flex justify-between items-end mb-6 relative z-10">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">Estimasi Total Bayar</p>
+                        <h2 id="totalDisplay" class="text-4xl font-black mt-1">Rp 0</h2>
+                    </div>
+
+                    {{-- Warning jika saldo kurang --}}
+                    <div id="insufficientBalanceMsg"
+                        class="hidden bg-rose-500/20 border border-rose-500/50 text-rose-300 px-3 py-1 rounded-lg text-xs font-bold">
+                        <i class="fas fa-exclamation-triangle"></i> Saldo Kurang
+                    </div>
+                </div>
+
+                {{-- Tombol Submit --}}
+                <button type="submit" id="submitBtn"
+                    class="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-4 rounded-xl shadow-lg shadow-emerald-500/20 transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 relative z-10">
+                    <span>Konfirmasi Pembelian</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+
+                {{-- Opsi Backdate --}}
+                <div class="mt-6 pt-4 border-t border-slate-700 relative z-10">
+                    <label
+                        class="flex items-center gap-2 text-slate-400 text-xs cursor-pointer hover:text-white transition w-fit"
+                        onclick="document.getElementById('dateInputContainer').classList.toggle('hidden')">
+                        <i class="fas fa-calendar-alt"></i> Set Tanggal Transaksi (Backdate)
+                    </label>
+                    <div id="dateInputContainer" class="hidden mt-2">
+                        <input type="datetime-local" name="custom_date"
+                            class="bg-slate-900 border border-slate-600 text-slate-300 text-sm rounded-lg p-2 w-full">
+                    </div>
+                </div>
+
+                {{-- Hiasan --}}
+                <div class="absolute -right-6 -bottom-10 w-40 h-40 bg-emerald-500/20 rounded-full blur-3xl z-0"></div>
+            </div>
+
+        </form>
     </div>
-    @endif
-
-    <form action="{{ route('buy.process') }}" method="POST">
-        @csrf
-        <div class="mb-6">
-            <label class="block text-gray-700 text-sm font-bold mb-2">Pilih Aset</label>
-            <select name="asset_symbol" id="assetSelect"
-                class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" required>
-                <option value="" data-price="0">-- Pilih Saham/Kripto --</option>
-                @foreach($assets as $asset)
-                <option value="{{ $asset->symbol }}"
-                    {{ (isset($selectedAsset) && $selectedAsset == $asset->symbol) ? 'selected' : '' }}>
-                    {{ $asset->symbol }} - {{ $asset->name }}
-                </option>
-                @endforeach
-            </select>
-        </div>
-
-        <div class="mb-6">
-            <label class="block text-gray-700 text-sm font-bold mb-2">Harga Beli Per Unit (IDR)</label>
-            <div class="relative">
-                <span class="absolute left-4 top-3 text-gray-500 font-bold">Rp</span>
-                <input type="number" step="0.01" name="buy_price" id="buyPriceInput"
-                    class="w-full pl-12 pr-4 py-3 border border-indigo-200 rounded-lg bg-indigo-50 font-bold text-indigo-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 transition"
-                    placeholder="0" required>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">
-                *Harga otomatis dari pasar. Bisa diedit manual jika beli di exchange lain.
-            </p>
-        </div>
-
-        <div class="mb-6">
-            <label class="block text-gray-700 text-sm font-bold mb-2">Jumlah Unit (Lot/Koin)</label>
-            <input type="number" step="0.0001" name="amount" id="amountInput"
-                class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500" placeholder="Contoh: 0.5"
-                required>
-        </div>
-
-        <div class="mb-8 text-right bg-gray-50 p-4 rounded-lg">
-            <span class="text-sm text-gray-500 block mb-1">Estimasi Total Bayar</span>
-            <h3 id="totalDisplay" class="text-3xl font-black text-gray-800">Rp 0</h3>
-        </div>
-
-        <div class="mb-8 border-t pt-6">
-            <div class="flex items-center gap-2 mb-2">
-                <span class="text-lg">📅</span>
-                <label class="text-gray-700 text-sm font-bold">Backdate (Opsional)</label>
-            </div>
-            <input type="datetime-local" name="custom_date"
-                class="w-full px-4 py-2 border rounded-lg text-sm text-gray-600">
-            <p class="text-xs text-gray-400 mt-1">
-                *Isi jika mencatat transaksi masa lampau.
-            </p>
-        </div>
-
-        <button type="submit"
-            class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-200">
-            🚀 Beli Aset Sekarang
-        </button>
-    </form>
 </div>
-
 @endsection
 
 @section('scripts')
 <script>
+const walletSelect = document.getElementById('walletSelect');
+const walletBalanceDisplay = document.getElementById('walletBalanceDisplay');
 const assetSelect = document.getElementById('assetSelect');
 const amountInput = document.getElementById('amountInput');
 const buyPriceInput = document.getElementById('buyPriceInput');
 const totalDisplay = document.getElementById('totalDisplay');
+const insufficientBalanceMsg = document.getElementById('insufficientBalanceMsg');
+const submitBtn = document.getElementById('submitBtn');
 
-// 1. Ambil Harga API saat ganti aset
+// 1. UPDATE SALDO SAAT GANTI DOMPET
+function updateWalletInfo() {
+    const selectedOption = walletSelect.options[walletSelect.selectedIndex];
+    if (selectedOption) {
+        const balance = parseFloat(selectedOption.getAttribute('data-balance')) || 0;
+        const currency = selectedOption.getAttribute('data-currency') || 'IDR';
+        walletBalanceDisplay.innerText = currency + ' ' + new Intl.NumberFormat('id-ID').format(balance);
+    }
+    calculateTotal(); // Cek ulang kecukupan saldo
+}
+walletSelect.addEventListener('change', updateWalletInfo);
+
+// 2. AMBIL HARGA ASET (API)
 assetSelect.addEventListener('change', function() {
     const symbol = this.value;
     if (symbol) {
         fetch(`/api/price/${symbol}`)
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
                 buyPriceInput.value = parseFloat(data.price);
                 calculateTotal();
-            });
+            })
+            .catch(err => console.error("Gagal ambil harga", err));
     } else {
         buyPriceInput.value = "";
         calculateTotal();
     }
 });
 
-// 2. Hitung real-time
-buyPriceInput.addEventListener('input', calculateTotal);
-amountInput.addEventListener('input', calculateTotal);
-
+// 3. KALKULASI TOTAL & VALIDASI SALDO
 function calculateTotal() {
     const amount = parseFloat(amountInput.value) || 0;
-    const currentPrice = parseFloat(buyPriceInput.value) || 0;
-    const total = amount * currentPrice;
+    const price = parseFloat(buyPriceInput.value) || 0;
+    const total = amount * price;
 
+    // Update Text Total
     totalDisplay.innerText = new Intl.NumberFormat('id-ID', {
         style: 'currency',
         currency: 'IDR'
     }).format(total);
+
+    // Cek Saldo
+    const selectedOption = walletSelect.options[walletSelect.selectedIndex];
+    const balance = selectedOption ? parseFloat(selectedOption.getAttribute('data-balance')) : 0;
+
+    if (total > balance) {
+        // Jika Saldo Kurang
+        totalDisplay.classList.add('text-rose-400');
+        insufficientBalanceMsg.classList.remove('hidden');
+        submitBtn.disabled = true;
+        submitBtn.classList.add('bg-slate-600', 'text-slate-400');
+        submitBtn.classList.remove('bg-emerald-500', 'text-white');
+        submitBtn.innerHTML = "Saldo Tidak Cukup";
+    } else {
+        // Jika Aman
+        totalDisplay.classList.remove('text-rose-400');
+        insufficientBalanceMsg.classList.add('hidden');
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('bg-slate-600', 'text-slate-400');
+        submitBtn.classList.add('bg-emerald-500', 'text-white');
+        submitBtn.innerHTML = `<span>Konfirmasi Pembelian</span> <i class="fas fa-arrow-right"></i>`;
+    }
 }
 
-// Auto trigger kalau ada aset terpilih dari URL
-if (assetSelect.value) {
-    assetSelect.dispatchEvent(new Event('change'));
-}
+// Event Listeners
+buyPriceInput.addEventListener('input', calculateTotal);
+amountInput.addEventListener('input', calculateTotal);
+
+// Init
+updateWalletInfo();
 </script>
 @endsection

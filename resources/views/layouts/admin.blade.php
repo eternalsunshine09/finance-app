@@ -40,6 +40,13 @@
                         <span class="font-bold">Master Aset</span>
                     </a>
 
+                    {{-- 🔥 MENU BARU: KELOLA VALAS --}}
+                    <a href="{{ route('admin.exchange-rates.index') }}"
+                        class="flex items-center gap-3 px-4 py-3 transition-colors rounded-xl hover:bg-blue-600 hover:text-white {{ request()->routeIs('admin.exchange-rates.*') ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400' }}">
+                        <i class="fas fa-globe-asia w-5"></i>
+                        <span class="font-bold">Kelola Valas</span>
+                    </a>
+
                     {{-- Menu Approval Top Up --}}
                     <a href="{{ route('admin.transactions.index') }}"
                         class="flex items-center gap-3 px-4 py-3 transition-colors rounded-xl hover:bg-emerald-600 hover:text-white {{ request()->routeIs('admin.transactions.index') ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400' }}">

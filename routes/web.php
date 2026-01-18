@@ -25,6 +25,7 @@ Route::middleware(['guest'])->group(function () {
 
 // --- 2. AREA MEMBER (Auth) ---
 Route::middleware(['auth'])->group(function () {
+    Route::get('/api/price/{symbol}', [App\Http\Controllers\TransactionController::class, 'getPrice']);
     
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -102,6 +103,14 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     // Fitur Kelola Kurs (Exchange Rate)
     Route::post('/exchange-rate/update', [App\Http\Controllers\AdminAssetController::class, 'updateRate'])->name('exchange.update');
     Route::post('/exchange-rate/sync-api', [App\Http\Controllers\AdminAssetController::class, 'syncRateAPI'])->name('exchange.syncApi');
+
+    // KELOLA VALAS (Admin Exchange Rates)
+    Route::prefix('exchange-rates')->name('exchange-rates.')->group(function () {
+        Route::get('/', [App\Http\Controllers\AdminExchangeRateController::class, 'index'])->name('index');
+        Route::post('/', [App\Http\Controllers\AdminExchangeRateController::class, 'store'])->name('store');
+        Route::post('/sync', [App\Http\Controllers\AdminExchangeRateController::class, 'syncApi'])->name('sync');
+        Route::delete('/{currency}', [App\Http\Controllers\AdminExchangeRateController::class, 'destroy'])->name('destroy');
+    });
 
     // Transaksi (Top Up)
     Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');

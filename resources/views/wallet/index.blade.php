@@ -1,122 +1,179 @@
 @extends('layouts.app')
-@section('title', 'Dompet Saya')
+@section('title', 'Dompet & Aset')
 
 @section('content')
-{{-- x-data membungkus seluruh area agar modal bisa berfungsi --}}
-<div class="min-h-screen bg-slate-50 pt-6 pb-12" x-data="{ showCreateModal: false }">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+<div class="min-h-screen bg-slate-50 pb-20" x-data="{ showCreateModal: false }">
 
-        {{-- HEADER --}}
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <h1 class="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                    <span
-                        class="bg-white text-indigo-600 p-2 rounded-2xl border border-slate-100 shadow-sm text-2xl">💳</span>
-                    Dompet & RDN
-                </h1>
-                <p class="text-slate-500 font-medium mt-2 ml-1">Kelola akun dan sumber dana Anda.</p>
+    {{-- BAGIAN ATAS: TOTAL SALDO --}}
+    <div class="bg-slate-900 pt-8 pb-24 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+        {{-- Hiasan Background --}}
+        <div class="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20">
+            <div class="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500 rounded-full blur-[100px]"></div>
+            <div class="absolute top-1/2 right-0 w-64 h-64 bg-emerald-500 rounded-full blur-[80px]"></div>
+        </div>
+
+        <div class="relative z-10 max-w-6xl mx-auto px-6">
+            <div class="flex justify-between items-center mb-8 text-white">
+                <div>
+                    <h1 class="text-2xl font-bold flex items-center gap-2">
+                        <i class="fas fa-wallet text-indigo-400"></i> Dompet Saya
+                    </h1>
+                    <p class="text-slate-400 text-sm">Kelola seluruh aset keuanganmu.</p>
+                </div>
+                <div class="text-right hidden md:block">
+                    <p class="text-xs text-slate-400 uppercase tracking-widest font-bold">Total Kekayaan</p>
+                    <h2 class="text-3xl font-black tracking-tight">Rp {{ number_format($totalBalance, 0, ',', '.') }}
+                    </h2>
+                </div>
             </div>
 
-            {{-- TOMBOL AKSI --}}
-            <div class="flex flex-wrap gap-3">
-                {{-- 🔥 TOMBOL TUKAR VALAS (BARU) 🔥 --}}
+            {{-- Card Total Saldo Mobile (Muncul di HP saja) --}}
+            <div class="md:hidden mb-6 text-center text-white">
+                <p class="text-xs text-slate-400 uppercase tracking-widest font-bold">Total Estimasi Aset</p>
+                <h2 class="text-4xl font-black tracking-tight mt-1">Rp {{ number_format($totalBalance, 0, ',', '.') }}
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-6 -mt-16 relative z-20 space-y-8">
+
+        {{-- 1. MENU AKSI CEPAT (QUICK ACTIONS) --}}
+        <div class="bg-white p-4 rounded-3xl shadow-lg border border-slate-100">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                {{-- Tombol Beli Aset --}}
+                <a href="{{ route('buy') }}"
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition group">
+                    <div
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
+                        🛒
+                    </div>
+                    <span class="font-bold text-sm">Beli Aset</span>
+                </a>
+
+                {{-- Tombol Tukar Valas --}}
                 <a href="{{ route('exchange.index') }}"
-                    class="bg-amber-100 text-amber-700 border border-amber-200 px-5 py-3 rounded-2xl font-bold hover:bg-amber-200 transition flex items-center gap-2 shadow-sm">
-                    💱 Tukar Valas
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-700 transition group">
+                    <div
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
+                        💱
+                    </div>
+                    <span class="font-bold text-sm">Tukar Valas</span>
                 </a>
 
                 {{-- Tombol Riwayat --}}
                 <a href="{{ route('wallet.history') }}"
-                    class="bg-white text-slate-600 border border-slate-200 px-5 py-3 rounded-2xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
-                    📜 Riwayat
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-700 transition group">
+                    <div
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
+                        📜
+                    </div>
+                    <span class="font-bold text-sm">Riwayat</span>
                 </a>
 
                 {{-- Tombol Tambah Akun --}}
                 <button @click="showCreateModal = true"
-                    class="bg-indigo-600 text-white px-5 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 transition flex items-center gap-2">
-                    ➕ Tambah Akun
-                </button>
-            </div>
-        </div>
-
-        {{-- TOTAL SALDO CARD --}}
-        <div
-            class="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl shadow-slate-200">
-            <div class="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500 rounded-full opacity-20 blur-3xl">
-            </div>
-            <div class="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-teal-500 rounded-full opacity-20 blur-3xl">
-            </div>
-
-            <div class="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
-                <div class="flex items-center gap-6">
+                    class="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition group">
                     <div
-                        class="w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-md flex items-center justify-center text-4xl shadow-inner border border-white/20">
-                        💰
+                        class="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition text-2xl">
+                        ➕
                     </div>
-                    <div>
-                        <p class="text-slate-300 text-sm font-bold uppercase tracking-wider mb-1">Estimasi Total Aset
-                            (IDR)</p>
-                        <h2 class="text-4xl md:text-5xl font-black text-white tracking-tight">
-                            Rp {{ number_format($totalBalance, 0, ',', '.') }}
-                        </h2>
-                    </div>
-                </div>
-                <div class="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-2xl border border-white/10">
-                    <span class="text-slate-200 font-medium text-sm">Tersebar di <b>{{ $wallets->count() }}</b>
-                        Akun</span>
-                </div>
+                    <span class="font-bold text-sm">Buat Akun</span>
+                </button>
+
             </div>
         </div>
 
-        {{-- GRID KARTU DOMPET --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            @foreach($wallets as $w)
-            <div
-                class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between h-60 relative overflow-hidden group">
+        {{-- 2. DAFTAR KARTU DOMPET --}}
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-lg text-slate-800">Akun Tersimpan ({{ $wallets->count() }})</h3>
+            </div>
 
-                <div class="relative z-10">
-                    <div class="flex justify-between items-start mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                @foreach($wallets as $w)
+                {{-- Logic Warna Kartu: USD (Hijau/Biru Tua), IDR (Biru/Indigo) --}}
+                @php
+                $cardGradient = $w->currency == 'USD'
+                ? 'bg-gradient-to-br from-teal-600 to-emerald-800'
+                : 'bg-gradient-to-br from-blue-600 to-indigo-800';
+
+                $icon = $w->currency == 'USD' ? '🇺🇸' : '🇮🇩';
+                @endphp
+
+                <div
+                    class="{{ $cardGradient }} rounded-3xl p-6 text-white shadow-lg hover:-translate-y-1 hover:shadow-2xl transition duration-300 relative overflow-hidden group h-56 flex flex-col justify-between">
+
+                    {{-- Dekorasi Kartu --}}
+                    <div
+                        class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 blur-2xl">
+                    </div>
+
+                    {{-- Atas Kartu --}}
+                    <div class="relative z-10 flex justify-between items-start">
                         <div>
-                            <span
-                                class="text-xs font-black text-slate-400 uppercase tracking-widest">{{ $w->bank_name }}</span>
-                            <h3 class="font-bold text-slate-800 text-xl">{{ $w->account_name }}</h3>
+                            <p class="text-xs font-bold uppercase opacity-70 tracking-widest">{{ $w->bank_name }}</p>
+                            <h4 class="font-bold text-xl mt-1">{{ $w->account_name }}</h4>
                         </div>
                         <span
-                            class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{{ $w->currency }}</span>
+                            class="text-2xl bg-white/20 w-10 h-10 flex items-center justify-center rounded-full backdrop-blur-sm">
+                            {{ $icon }}
+                        </span>
                     </div>
-                    <p class="font-mono text-slate-500 tracking-wider">
-                        {{ chunk_split($w->account_number ?? '****', 4, ' ') }}
-                    </p>
-                </div>
 
-                <div class="relative z-10 flex justify-between items-end mt-auto pt-4 border-t border-slate-50">
-                    <div>
-                        <p class="text-xs text-slate-400 font-bold uppercase">Saldo</p>
-                        <p class="text-2xl font-black text-slate-800">
-                            {{ $w->currency == 'USD' ? '$' : 'Rp' }} {{ number_format($w->balance, 0, ',', '.') }}
-                        </p>
+                    {{-- Chip Kartu (Hiasan) --}}
+                    <div class="relative z-10 flex items-center gap-2 opacity-80 my-2">
+                        <div
+                            class="w-10 h-7 border border-yellow-400/50 rounded bg-yellow-400/20 flex items-center justify-center">
+                            <div class="w-6 h-4 border border-yellow-400/50 rounded-sm"></div>
+                        </div>
+                        <i class="fas fa-wifi rotate-90"></i>
                     </div>
-                    <div class="flex gap-2">
-                        {{-- Tombol Edit --}}
-                        <a href="{{ route('wallet.edit', $w->id) }}"
-                            class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition"
-                            title="Edit Dompet">
-                            ✏️
-                        </a>
-                        {{-- Tombol Lihat History Spesifik --}}
-                        <a href="{{ route('wallet.history', ['wallet_id' => $w->id]) }}"
-                            class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-800 hover:text-white transition"
-                            title="Lihat Mutasi">
-                            📜
-                        </a>
+
+                    {{-- Bawah Kartu --}}
+                    <div class="relative z-10">
+                        <p class="font-mono opacity-80 text-sm tracking-widest mb-1">
+                            {{ chunk_split($w->account_number ?? '0000000000', 4, ' ') }}
+                        </p>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <p class="text-xs font-bold uppercase opacity-70">Balance</p>
+                                <p class="text-2xl font-black tracking-tight">
+                                    {{ $w->currency == 'USD' ? '$' : 'Rp' }}
+                                    {{ number_format($w->balance, 0, ',', '.') }}
+                                </p>
+                            </div>
+
+                            {{-- Tombol Kecil di Kartu --}}
+                            <div class="flex gap-2">
+                                <a href="{{ route('wallet.edit', $w->id) }}"
+                                    class="w-8 h-8 rounded-full bg-white/20 hover:bg-white hover:text-indigo-900 flex items-center justify-center transition backdrop-blur-md">
+                                    <i class="fas fa-pencil-alt text-xs"></i>
+                                </a>
+                                <a href="{{ route('wallet.history', ['wallet_id' => $w->id]) }}"
+                                    class="w-8 h-8 rounded-full bg-white/20 hover:bg-white hover:text-indigo-900 flex items-center justify-center transition backdrop-blur-md">
+                                    <i class="fas fa-history text-xs"></i>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                @endforeach
+
+                {{-- State Kosong (Jika belum ada dompet) --}}
+                @if($wallets->isEmpty())
+                <div class="col-span-full text-center py-12 bg-white rounded-3xl border border-dashed border-slate-300">
+                    <p class="text-slate-400 text-lg">Belum ada akun dompet.</p>
+                    <button @click="showCreateModal = true" class="text-indigo-600 font-bold hover:underline mt-2">Buat
+                        Akun Sekarang</button>
+                </div>
+                @endif
             </div>
-            @endforeach
         </div>
     </div>
 
-    {{-- INCLUDE MODAL (Pastikan file partial ini ada) --}}
+    {{-- INCLUDE MODAL --}}
     @include('wallet.partials.create-modal')
 </div>
 @endsection
