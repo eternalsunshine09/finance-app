@@ -20,54 +20,68 @@ class TransactionController extends Controller
     public function showBuyForm()
     {
         $user = Auth::user();
-        
-        // 1. Ambil Data Aset (Urutkan nama)
         $assets = Asset::orderBy('name')->get();
         
-        // 2. Ambil Data Dompet (Hanya yang punya saldo)
-        $wallets = Wallet::where('user_id', $user->id)
-                         ->get();
+        // Ambil SEMUA wallet (walau saldo 0) agar user bisa lihat opsinya
+        $wallets = Wallet::where('user_id', $user->id)->get();
 
-        // Pastikan nama file view sesuai folder kamu: 'transactions.buy'
         return view('transactions.buy', compact('assets', 'wallets'));
     }
 
     public function processBuy(Request $request)
     {
         $request->validate([
-            'wallet_id'    => 'required|exists:wallets,id', // Wajib pilih dompet
+            'wallet_id'    => 'required|exists:wallets,id',
             'asset_symbol' => 'required|exists:assets,symbol',
             'buy_price'    => 'required|numeric|min:0',
             'amount'       => 'required|numeric|min:0.00000001', 
         ]);
 
-        $user = Auth::user();
-        $totalCost = $request->amount * $request->buy_price;
-
-        DB::transaction(function () use ($request, $user, $totalCost) {
+        DB::transaction(function () use ($request) {
+            $user = Auth::user();
             
-            // A. Kunci Dompet yang Dipilih
+            // 1. Ambil Data Wallet & Aset
             $wallet = Wallet::where('id', $request->wallet_id)
                             ->where('user_id', $user->id)
                             ->lockForUpdate()
                             ->firstOrFail();
+                            
+            $asset = Asset::where('symbol', $request->asset_symbol)->firstOrFail();
 
-            // B. Cek Kecukupan Saldo
-            if ($wallet->balance < $totalCost) {
+            // 🔥 VALIDASI TIPE ASET VS MATA UANG DOMPET 🔥
+            if ($asset->type == 'Crypto' && $wallet->currency != 'USD') {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'amount' => 'Saldo di ' . $wallet->account_name . ' tidak cukup! (Kurang Rp ' . number_format($totalCost - $wallet->balance) . ')'
+                    'wallet_id' => "Aset Crypto ({$asset->symbol}) wajib dibeli pakai Saldo USD. Silakan pilih dompet USD atau Tukar Valas dulu."
                 ]);
             }
 
-            // C. Potong Saldo
+            if ($asset->type == 'Stock' && $wallet->currency != 'IDR') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'wallet_id' => "Saham Indonesia ({$asset->symbol}) wajib dibeli pakai Saldo IDR."
+                ]);
+            }
+
+            // Hitung Total
+            $totalCost = $request->amount * $request->buy_price;
+
+            // Cek Saldo
+            if ($wallet->balance < $totalCost) {
+                $currencySymbol = ($wallet->currency == 'USD') ? '$' : 'Rp';
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount' => "Saldo tidak cukup! Butuh {$currencySymbol} " . number_format($totalCost, 2)
+                ]);
+            }
+
+            // Potong Saldo
             $wallet->decrement('balance', $totalCost);
 
-            // D. Update Portofolio (Average Down Logic)
+            // Update Portofolio
             $portfolio = Portfolio::firstOrCreate(
                 ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
                 ['amount' => 0, 'average_price' => 0]
             );
 
+            // Hitung Average Price (Average Down)
             $oldTotalVal = $portfolio->amount * $portfolio->average_price;
             $newTotalVal = $oldTotalVal + $totalCost;
             $newAmount   = $portfolio->amount + $request->amount;
@@ -78,10 +92,10 @@ class TransactionController extends Controller
                 'average_price' => $newAvgPrice
             ]);
 
-            // E. Catat Transaksi
+            // Catat Transaksi
             Transaction::create([
                 'user_id' => $user->id,
-                'wallet_id' => $wallet->id, // Catat wallet ID
+                'wallet_id' => $wallet->id,
                 'type' => 'BUY',
                 'status' => 'approved',
                 'asset_symbol' => $request->asset_symbol,

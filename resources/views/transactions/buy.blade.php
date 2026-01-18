@@ -15,7 +15,11 @@
         @if ($errors->any())
         <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-r shadow-sm">
             <p class="font-bold">Gagal Memproses:</p>
-            <p>{{ $errors->first() }}</p>
+            <ul class="list-disc ml-5 text-sm">
+                @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
         </div>
         @endif
 
@@ -35,10 +39,12 @@
                         <select name="wallet_id" id="walletSelect"
                             class="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-slate-700 appearance-none cursor-pointer"
                             required>
+                            <option value="" disabled selected>-- Pilih Dompet --</option>
                             @foreach($wallets as $wallet)
                             <option value="{{ $wallet->id }}" data-balance="{{ $wallet->balance }}"
-                                data-currency="{{ $wallet->currency }}">
-                                {{ $wallet->bank_name }} - {{ $wallet->account_name }}
+                                data-currency="{{ $wallet->currency }}"
+                                data-flag="{{ $wallet->currency == 'IDR' ? 'id' : 'us' }}">
+                                {{ $wallet->bank_name }} - {{ $wallet->account_name }} ({{ $wallet->currency }})
                             </option>
                             @endforeach
                         </select>
@@ -46,11 +52,15 @@
                         <div class="absolute right-4 top-4 text-slate-400"><i class="fas fa-chevron-down"></i></div>
                     </div>
 
-                    {{-- Info Saldo --}}
+                    {{-- Info Saldo dengan Bendera --}}
                     <div
                         class="mt-3 flex justify-between items-center bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
                         <span class="text-xs text-indigo-600 font-bold">Saldo Tersedia:</span>
-                        <span id="walletBalanceDisplay" class="font-black text-indigo-700 text-lg">Rp 0</span>
+                        <div class="flex items-center gap-2">
+                            {{-- Image Flag Placeholder --}}
+                            <img id="currencyFlag" src="" class="w-6 h-4 rounded shadow-sm hidden object-cover">
+                            <span id="walletBalanceDisplay" class="font-black text-indigo-700 text-lg">Rp 0</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -67,9 +77,11 @@
                             <select name="asset_symbol" id="assetSelect"
                                 class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-indigo-500 font-bold text-slate-800"
                                 required>
-                                <option value="" data-price="0">-- Pilih --</option>
+                                <option value="" data-price="0">-- Pilih Aset --</option>
                                 @foreach($assets as $asset)
-                                <option value="{{ $asset->symbol }}">{{ $asset->symbol }} - {{ $asset->name }}</option>
+                                <option value="{{ $asset->symbol }}" data-type="{{ $asset->type }}">
+                                    {{ $asset->symbol }} - {{ $asset->name }} ({{ $asset->type }})
+                                </option>
                                 @endforeach
                             </select>
                             <div class="absolute left-3.5 top-3.5 text-slate-400"><i class="fas fa-chart-pie"></i></div>
@@ -80,7 +92,7 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Harga Pasar (Unit)</label>
                         <div class="relative">
-                            <span class="absolute left-4 top-3 text-slate-400 font-bold">Rp</span>
+                            <span id="currencyLabel" class="absolute left-4 top-3 text-slate-400 font-bold">Rp</span>
                             <input type="number" step="any" name="buy_price" id="buyPriceInput"
                                 class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-600 focus:bg-white transition"
                                 placeholder="0" required>
@@ -107,7 +119,7 @@
                 <div class="flex justify-between items-end mb-6 relative z-10">
                     <div>
                         <p class="text-slate-400 text-sm font-medium">Estimasi Total Bayar</p>
-                        <h2 id="totalDisplay" class="text-4xl font-black mt-1">Rp 0</h2>
+                        <h2 id="totalDisplay" class="text-4xl font-black mt-1">0</h2>
                     </div>
 
                     {{-- Warning jika saldo kurang --}}
@@ -150,39 +162,65 @@
 <script>
 const walletSelect = document.getElementById('walletSelect');
 const walletBalanceDisplay = document.getElementById('walletBalanceDisplay');
+const currencyFlag = document.getElementById('currencyFlag');
+
 const assetSelect = document.getElementById('assetSelect');
 const amountInput = document.getElementById('amountInput');
 const buyPriceInput = document.getElementById('buyPriceInput');
 const totalDisplay = document.getElementById('totalDisplay');
 const insufficientBalanceMsg = document.getElementById('insufficientBalanceMsg');
 const submitBtn = document.getElementById('submitBtn');
+const currencyLabel = document.getElementById('currencyLabel');
 
 // 1. UPDATE SALDO SAAT GANTI DOMPET
 function updateWalletInfo() {
     const selectedOption = walletSelect.options[walletSelect.selectedIndex];
-    if (selectedOption) {
+
+    if (selectedOption && !selectedOption.disabled) {
         const balance = parseFloat(selectedOption.getAttribute('data-balance')) || 0;
         const currency = selectedOption.getAttribute('data-currency') || 'IDR';
-        walletBalanceDisplay.innerText = currency + ' ' + new Intl.NumberFormat('id-ID').format(balance);
+        const flagCode = selectedOption.getAttribute('data-flag') || 'id';
+
+        // Format Uang
+        const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'id-ID', {
+            style: 'currency',
+            currency: currency
+        });
+
+        walletBalanceDisplay.innerText = formatter.format(balance);
+
+        // Update Bendera (Pakai API flagcdn)
+        currencyFlag.src = `https://flagcdn.com/w40/${flagCode}.png`;
+        currencyFlag.classList.remove('hidden');
+    } else {
+        walletBalanceDisplay.innerText = "Rp 0";
+        currencyFlag.classList.add('hidden');
     }
+
     calculateTotal(); // Cek ulang kecukupan saldo
 }
+
 walletSelect.addEventListener('change', updateWalletInfo);
 
-// 2. AMBIL HARGA ASET (API)
+// 2. LOGIC AMBIL HARGA & DETEKSI TIPE ASET
 assetSelect.addEventListener('change', function() {
     const symbol = this.value;
+    const selectedOption = this.options[this.selectedIndex];
+    const assetType = selectedOption.getAttribute('data-type'); // 'Crypto' atau 'Stock'
+
+    // Ubah Simbol Mata Uang Input
+    let currencySymbol = 'Rp';
+    if (assetType === 'Crypto') currencySymbol = '$';
+    if (currencyLabel) currencyLabel.innerText = currencySymbol;
+
+    // Ambil Harga API
     if (symbol) {
         fetch(`/api/price/${symbol}`)
             .then(res => res.json())
             .then(data => {
                 buyPriceInput.value = parseFloat(data.price);
                 calculateTotal();
-            })
-            .catch(err => console.error("Gagal ambil harga", err));
-    } else {
-        buyPriceInput.value = "";
-        calculateTotal();
+            });
     }
 });
 
@@ -192,26 +230,35 @@ function calculateTotal() {
     const price = parseFloat(buyPriceInput.value) || 0;
     const total = amount * price;
 
-    // Update Text Total
-    totalDisplay.innerText = new Intl.NumberFormat('id-ID', {
+    // Ambil data dompet yang dipilih
+    const selectedWalletOption = walletSelect.options[walletSelect.selectedIndex];
+    const balance = selectedWalletOption && !selectedWalletOption.disabled ?
+        parseFloat(selectedWalletOption.getAttribute('data-balance')) :
+        0;
+
+    // Cek Mata Uang untuk Format
+    const selectedAssetOption = assetSelect.options[assetSelect.selectedIndex];
+    const assetType = selectedAssetOption ? selectedAssetOption.getAttribute('data-type') : 'Stock';
+    const currencyCode = (assetType === 'Crypto') ? 'USD' : 'IDR';
+    const locale = (assetType === 'Crypto') ? 'en-US' : 'id-ID';
+
+    // Tampilkan Total
+    totalDisplay.innerText = new Intl.NumberFormat(locale, {
         style: 'currency',
-        currency: 'IDR'
+        currency: currencyCode
     }).format(total);
 
-    // Cek Saldo
-    const selectedOption = walletSelect.options[walletSelect.selectedIndex];
-    const balance = selectedOption ? parseFloat(selectedOption.getAttribute('data-balance')) : 0;
-
+    // Validasi Saldo
     if (total > balance) {
-        // Jika Saldo Kurang
+        // Saldo Kurang
         totalDisplay.classList.add('text-rose-400');
         insufficientBalanceMsg.classList.remove('hidden');
         submitBtn.disabled = true;
         submitBtn.classList.add('bg-slate-600', 'text-slate-400');
         submitBtn.classList.remove('bg-emerald-500', 'text-white');
-        submitBtn.innerHTML = "Saldo Tidak Cukup";
+        submitBtn.innerHTML = "<i class='fas fa-ban'></i> Saldo Tidak Cukup";
     } else {
-        // Jika Aman
+        // Aman
         totalDisplay.classList.remove('text-rose-400');
         insufficientBalanceMsg.classList.add('hidden');
         submitBtn.disabled = false;
@@ -225,7 +272,7 @@ function calculateTotal() {
 buyPriceInput.addEventListener('input', calculateTotal);
 amountInput.addEventListener('input', calculateTotal);
 
-// Init
+// Init (Jalankan saat load biar saldo awal muncul)
 updateWalletInfo();
 </script>
 @endsection

@@ -90,7 +90,8 @@
                         </select>
                         <div
                             class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
-                            <i class="fas fa-chevron-down text-xs"></i></div>
+                            <i class="fas fa-chevron-down text-xs"></i>
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -145,15 +146,20 @@
                                 <span
                                     class="px-3 py-1 rounded-full text-xs font-bold border {{ $cls }}">{{ $asset->type }}</span>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <form action="{{ route('admin.assets.updatePrice', $asset->id) }}" method="POST"
-                                    class="flex justify-end gap-2">
-                                    @csrf @method('PATCH')
-                                    <input type="number" name="current_price" value="{{ $asset->current_price }}"
-                                        class="w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-right text-white text-xs focus:border-indigo-500 focus:outline-none">
-                                    <button type="submit" class="text-blue-400 hover:text-white" title="Simpan Harga"><i
-                                            class="fas fa-save"></i></button>
-                                </form>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-2">
+                                    @if($asset->type == 'Crypto')
+                                    {{-- Logo Dollar & Harga USD --}}
+                                    <span class="text-emerald-400 font-bold">$</span>
+                                    <span
+                                        class="font-mono text-white">{{ number_format($asset->current_price, 2, '.', ',') }}</span>
+                                    @else
+                                    {{-- Logo Rupiah & Harga IDR --}}
+                                    <span class="text-slate-400 font-bold">Rp</span>
+                                    <span
+                                        class="font-mono text-white">{{ number_format($asset->current_price, 0, ',', '.') }}</span>
+                                    @endif
+                                </div>
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <form action="{{ route('admin.assets.destroy', $asset->id) }}" method="POST"
