@@ -154,9 +154,12 @@
                         </li>
 
                         <li>
-                            <a href="#"
-                                class="relative flex items-center py-3 hover:bg-slate-800 transition-colors duration-200 text-slate-400"
+                            <a href="{{ route('admin.users.index') }}"
+                                class="relative flex items-center py-3 hover:bg-slate-800 transition-colors duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-slate-800 text-blue-400' : 'text-slate-400' }}"
                                 :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="App User">
+                                @if(request()->routeIs('admin.users.*'))
+                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r"></div>
+                                @endif
                                 <span class="text-lg w-6 text-center transition-all duration-300"
                                     :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-users"></i></span>
                                 <span class="whitespace-nowrap transition-opacity duration-300 font-medium"

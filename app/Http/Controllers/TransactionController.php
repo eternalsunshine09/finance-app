@@ -81,21 +81,21 @@ class TransactionController extends Controller
             // Cari atau Buat Portfolio Baru
             $portfolio = Portfolio::firstOrCreate(
                 ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
-                ['quantity' => 0, 'average_price' => 0] // ✅ Ganti 'amount' jadi 'quantity'
+                ['quantity' => 0, 'average_buy_price' => 0] // ✅ GANTI nama kolom
             );
 
             // Hitung Average Price (Average Down Logic)
-            // Gunakan $portfolio->quantity (bukan amount)
-            $oldTotalVal = $portfolio->quantity * $portfolio->average_price; 
+            // Gunakan $portfolio->average_buy_price (sesuai DB)
+            $oldTotalVal = $portfolio->quantity * $portfolio->average_buy_price; 
             $newTotalVal = $oldTotalVal + $totalCost;
-            $newQuantity = $portfolio->quantity + $request->amount; // Ditambah jumlah beli baru
+            $newQuantity = $portfolio->quantity + $request->amount; 
             
             $newAvgPrice = $newQuantity > 0 ? $newTotalVal / $newQuantity : 0;
 
             // Update Database Portfolio
             $portfolio->update([
-                'quantity' => $newQuantity, // ✅ Ganti 'amount' jadi 'quantity'
-                'average_price' => $newAvgPrice
+                'quantity' => $newQuantity, 
+                'average_buy_price' => $newAvgPrice // ✅ GANTI nama kolom
             ]);
 
             // Catat Transaksi

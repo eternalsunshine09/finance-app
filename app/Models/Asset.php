@@ -14,6 +14,7 @@ class Asset extends Model
         'symbol',
         'name',
         'type',
+        'subtype',
         'current_price',
         'api_id' // <--- Jangan lupa kolom baru ini juga dimasukkan
     ];

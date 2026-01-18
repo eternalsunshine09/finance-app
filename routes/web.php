@@ -93,9 +93,13 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     
     // Dashboard
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/users', [App\Http\Controllers\AdminUserController::class, 'index'])->name('users.index');
+    Route::get('/users/{id}', [App\Http\Controllers\AdminUserController::class, 'show'])->name('users.show'); // Detail User
 
     // Master Aset (CRUD)
     Route::get('/assets', [AdminAssetController::class, 'index'])->name('assets.index');
+    Route::post('/assets/sync', [App\Http\Controllers\AdminAssetController::class, 'syncPrices'])->name('assets.sync');
+    Route::get('/assets/create', [App\Http\Controllers\AdminAssetController::class, 'create'])->name('assets.create');
     Route::post('/assets', [AdminAssetController::class, 'store'])->name('assets.store');
     Route::patch('/assets/{id}/price', [AdminAssetController::class, 'updatePrice'])->name('assets.updatePrice');
     Route::post('/assets/sync', [AdminAssetController::class, 'sync'])->name('assets.sync');

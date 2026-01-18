@@ -15,24 +15,31 @@ class AdminAssetController extends Controller
         return view('admin.assets.index', compact('assets'));
     }
 
+    public function create()
+    {
+        return view('admin.assets.create');
+    }
+
     public function store(Request $request)
     {
         $request->validate([
             'symbol' => 'required|unique:assets,symbol',
             'name' => 'required',
             'type' => 'required',
-            'current_price' => 'required|numeric'
+            'current_price' => 'required|numeric',
+            // Subtype opsional, tapi kalau mau strict bisa dikasih logic tambahan
         ]);
 
         Asset::create([
             'symbol' => strtoupper($request->symbol),
             'name' => $request->name,
             'type' => $request->type,
+            'subtype' => $request->subtype, // <--- Simpan subtype
+            'api_id' => $request->api_id,
             'current_price' => $request->current_price,
-            'api_id' => $request->api_id, // Opsional
         ]);
 
-        return back()->with('success', 'Aset berhasil ditambahkan.');
+        return redirect()->route('admin.assets.index')->with('success', 'Aset berhasil ditambahkan!');
     }
 
     public function updatePrice(Request $request, $id)
