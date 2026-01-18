@@ -13,10 +13,10 @@ class Wallet extends Model
     protected $fillable = [
         'user_id', 
         'balance', 
-        'currency',
-        'bank_name',      // Baru
-        'account_name',   // Baru
-        'account_number'  // Baru
+        'currency',       // 👈 Pastikan ini ada
+        'bank_name',      // 👈 Ini juga baru
+        'account_name',   // 👈 Ini juga baru
+        'account_number'  // 👈 Dan ini
     ];
 
     // Dompet ini milik satu User

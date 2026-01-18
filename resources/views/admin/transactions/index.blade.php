@@ -1,89 +1,61 @@
-<!DOCTYPE html>
-<html lang="id">
+@extends('layouts.admin')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Approval Top Up - Admin</title>
-    @vite('resources/css/app.css')
-</head>
+@section('content')
+<div class="mb-8">
+    <h2 class="text-3xl font-black text-white">Approval Top Up</h2>
+    <p class="text-slate-400 mt-1">Verifikasi bukti transfer dari user.</p>
+</div>
 
-<body class="bg-gray-800 text-white font-sans">
-
-    <nav class="bg-gray-900 p-4 shadow-lg border-b border-gray-700 mb-8">
-        <div class="container mx-auto flex justify-between items-center">
-            <h1 class="font-bold text-xl text-yellow-400">👑 Admin Approval</h1>
-            <a href="{{ route('admin.assets.index') }}" class="text-gray-300 hover:text-white">Kelola Aset ➡</a>
-        </div>
-    </nav>
-
-    <div class="container mx-auto px-4">
-
-        @if(session('success'))
-        <div class="bg-green-600 text-white px-4 py-3 rounded mb-4">
-            {{ session('success') }}
-        </div>
-        @endif
-
-        <div class="bg-gray-700 rounded-lg shadow-lg overflow-hidden">
-            <div class="p-6 border-b border-gray-600">
-                <h2 class="text-xl font-bold">⏳ Menunggu Persetujuan (Pending)</h2>
-            </div>
-
-            <table class="w-full text-left">
-                <thead class="bg-gray-900 text-gray-400 uppercase text-sm">
-                    <tr>
-                        <th class="p-4">Tanggal</th>
-                        <th class="p-4">User</th>
-                        <th class="p-4">Bukti</th>
-                        <th class="p-4 text-right">Jumlah (IDR)</th>
-                        <th class="p-4 text-center">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="text-gray-200 divide-y divide-gray-600">
-                    @forelse($transactions as $trx)
-                    <tr class="hover:bg-gray-600">
-                        <td class="p-4">{{ $trx->created_at->format('d M Y, H:i') }}</td>
-                        <td class="p-4 font-bold">{{ $trx->user->name }}</td>
-
-                        <td class="p-4">
-                            @if($trx->payment_proof)
-                            <a href="{{ asset('storage/' . $trx->payment_proof) }}" target="_blank">
-                                <img src="{{ asset('storage/' . $trx->payment_proof) }}"
-                                    class="h-12 w-12 object-cover rounded border border-gray-500 hover:scale-150 transition"
-                                    alt="Bukti">
-                            </a>
-                            @else
-                            <span class="text-xs text-red-400">Tidak ada bukti</span>
-                            @endif
-                        </td>
-                        <td class="p-4 text-right text-green-400 font-mono text-lg">Rp
-                            {{ number_format($trx->amount_cash, 0, ',', '.') }}</td>
-
-                        <td class="p-4 text-center flex justify-center gap-2">
-                            <form action="{{ route('admin.transactions.approve', $trx->id) }}" method="POST">
-                                @csrf @method('PATCH')
-                                <button type="submit"
-                                    class="bg-green-600 hover:bg-green-500 text-white font-bold py-1 px-4 rounded shadow">✅</button>
-                            </form>
-                            <form action="{{ route('admin.transactions.reject', $trx->id) }}" method="POST">
-                                @csrf @method('PATCH')
-                                <button type="submit"
-                                    class="bg-red-600 hover:bg-red-500 text-white font-bold py-1 px-4 rounded shadow">❌</button>
-                            </form>
-                        </td>
-                    </tr>
-
-                    @empty
-                    <tr>
-                        <td colspan="4" class="p-8 text-center text-gray-400">Tidak ada permintaan top up baru.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+<div class="bg-slate-800 rounded-3xl border border-slate-700 shadow-xl overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-slate-900/50 text-slate-400 text-xs uppercase font-bold">
+                <tr>
+                    <th class="p-6">Tanggal</th>
+                    <th class="p-6">User</th>
+                    <th class="p-6">Bukti Transfer</th>
+                    <th class="p-6 text-right">Nominal</th>
+                    <th class="p-6 text-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-700 text-sm">
+                @forelse($transactions as $trx)
+                <tr class="hover:bg-slate-700/50 transition">
+                    <td class="p-6 text-slate-300">{{ $trx->created_at->format('d M Y H:i') }}</td>
+                    <td class="p-6 font-bold text-white">{{ $trx->user->name }}</td>
+                    <td class="p-6">
+                        @if($trx->payment_proof)
+                        <a href="{{ asset('storage/'.$trx->payment_proof) }}" target="_blank"
+                            class="text-indigo-400 hover:underline text-xs flex items-center gap-1">
+                            <i class="fas fa-image"></i> Lihat Bukti
+                        </a>
+                        @else
+                        <span class="text-rose-500 text-xs">Tanpa Bukti</span>
+                        @endif
+                    </td>
+                    <td class="p-6 text-right font-mono text-emerald-400 font-bold text-lg">
+                        Rp {{ number_format($trx->amount_cash, 0, ',', '.') }}
+                    </td>
+                    <td class="p-6 text-center flex justify-center gap-2">
+                        <form action="{{ route('admin.transactions.approve', $trx->id) }}" method="POST">
+                            @csrf @method('PATCH')
+                            <button
+                                class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-xs font-bold transition shadow">Terima</button>
+                        </form>
+                        <form action="{{ route('admin.transactions.reject', $trx->id) }}" method="POST">
+                            @csrf @method('PATCH')
+                            <button
+                                class="bg-slate-700 hover:bg-rose-600 text-white px-3 py-1 rounded-lg text-xs font-bold transition">Tolak</button>
+                        </form>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="5" class="p-8 text-center text-slate-500">Tidak ada pending top up.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
-
-</body>
-
-</html>
+</div>
+@endsection

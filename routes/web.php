@@ -5,8 +5,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\AssetController;
-use App\Http\Controllers\AdminTransactionController;
+use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminAssetController;
+use App\Http\Controllers\AdminTransactionController;
 
 // --- 1. AREA TAMU (Guest) ---
 Route::middleware(['guest'])->group(function () {
@@ -52,9 +54,22 @@ Route::middleware(['auth'])->group(function () {
     // Fitur History
     Route::get('/history', [TransactionController::class, 'history'])->name('history');
 
-    // MENU WALLET
+    // Fitur Exchange
+    Route::get('/exchange', [ExchangeController::class, 'index'])->name('exchange.index');
+    Route::post('/exchange', [ExchangeController::class, 'process'])->name('exchange.process');
+
+    // Wallet Index & Store
     Route::get('/wallet', [App\Http\Controllers\WalletController::class, 'index'])->name('wallet.index');
-    Route::post('/wallet/create', [App\Http\Controllers\WalletController::class, 'store'])->name('wallet.store');
+    Route::post('/wallet', [App\Http\Controllers\WalletController::class, 'store'])->name('wallet.store');
+    
+    // Halaman History Terpisah
+    Route::get('/wallet/history', [App\Http\Controllers\WalletController::class, 'history'])->name('wallet.history');
+    
+    // Halaman Edit & Update & Destroy
+    Route::get('/wallet/{id}/edit', [App\Http\Controllers\WalletController::class, 'edit'])->name('wallet.edit');
+    Route::put('/wallet/{id}', [App\Http\Controllers\WalletController::class, 'update'])->name('wallet.update');
+    Route::delete('/wallet/{id}', [App\Http\Controllers\WalletController::class, 'destroy'])->name('wallet.destroy');
+
 
     // MENU MARKET / EXCHANGE
     Route::get('/market', [App\Http\Controllers\MarketController::class, 'index'])->name('market.index');
@@ -71,26 +86,30 @@ Route::middleware(['auth'])->group(function () {
     })->name('api.price');
 });
 
-// --- 3. AREA ADMIN ---
-Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
-
-    // Aset
-    // SYNC HARGA (Taruh sebelum route /{id} biar gak bentrok)
-    Route::post('/assets/sync', [App\Http\Controllers\AssetController::class, 'syncToApi'])->name('admin.assets.sync');
-    Route::get('/assets', [AssetController::class, 'index'])->name('admin.assets.index');
-    Route::post('/assets', [AssetController::class, 'store'])->name('admin.assets.store');
-    Route::patch('/assets/{id}', [AssetController::class, 'updatePrice'])->name('admin.assets.updatePrice');
-    Route::delete('/assets/{id}', [AssetController::class, 'destroy'])->name('admin.assets.destroy');
-
-    // Approval
-    Route::get('/topups', [AdminTransactionController::class, 'index'])->name('admin.transactions.index');
-    Route::patch('/topups/{id}/approve', [AdminTransactionController::class, 'approve'])->name('admin.transactions.approve');
-    Route::patch('/topups/{id}/reject', [AdminTransactionController::class, 'reject'])->name('admin.transactions.reject');
+// GROUP ROUTE KHUSUS ADMIN
+Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     
-    // --- 3. AREA ADMIN (Tambahkan di grup 'admin') ---
-    // Approval Withdraw
-    Route::get('/withdrawals', [AdminTransactionController::class, 'indexWithdrawals'])->name('admin.withdrawals.index');
-    Route::patch('/withdrawals/{id}/approve', [AdminTransactionController::class, 'approveWithdraw'])->name('admin.withdrawals.approve');
-    Route::patch('/withdrawals/{id}/reject', [AdminTransactionController::class, 'rejectWithdraw'])->name('admin.withdrawals.reject');
+    // Dashboard
+    Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+    // Master Aset (CRUD)
+    Route::get('/assets', [AdminAssetController::class, 'index'])->name('assets.index');
+    Route::post('/assets', [AdminAssetController::class, 'store'])->name('assets.store');
+    Route::patch('/assets/{id}/price', [AdminAssetController::class, 'updatePrice'])->name('assets.updatePrice');
+    Route::post('/assets/sync', [AdminAssetController::class, 'sync'])->name('assets.sync');
+    Route::delete('/assets/{id}', [AdminAssetController::class, 'destroy'])->name('assets.destroy');
+
+    // Fitur Kelola Kurs (Exchange Rate)
+    Route::post('/exchange-rate/update', [App\Http\Controllers\AdminAssetController::class, 'updateRate'])->name('exchange.update');
+    Route::post('/exchange-rate/sync-api', [App\Http\Controllers\AdminAssetController::class, 'syncRateAPI'])->name('exchange.syncApi');
+
+    // Transaksi (Top Up)
+    Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
+    Route::patch('/transactions/{id}/approve', [AdminTransactionController::class, 'approve'])->name('transactions.approve');
+    Route::patch('/transactions/{id}/reject', [AdminTransactionController::class, 'reject'])->name('transactions.reject');
+
+    // Transaksi (Withdraw)
+    Route::get('/withdrawals', [AdminTransactionController::class, 'indexWithdrawals'])->name('withdrawals.index');
+    Route::patch('/withdrawals/{id}/approve', [AdminTransactionController::class, 'approveWithdraw'])->name('withdrawals.approve');
+    Route::patch('/withdrawals/{id}/reject', [AdminTransactionController::class, 'rejectWithdraw'])->name('withdrawals.reject');
 });

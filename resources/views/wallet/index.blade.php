@@ -1,151 +1,122 @@
 @extends('layouts.app')
-
 @section('title', 'Dompet Saya')
-@section('header', '💳 Manajemen RDN & Dompet')
 
 @section('content')
+{{-- x-data membungkus seluruh area agar modal bisa berfungsi --}}
+<div class="min-h-screen bg-slate-50 pt-6 pb-12" x-data="{ showCreateModal: false }">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
-<div class="mb-8">
-    <div class="flex justify-between items-center mb-4">
-        <h3 class="font-bold text-gray-700">Daftar Rekening & RDN</h3>
-        <button onclick="document.getElementById('addWalletModal').classList.remove('hidden')"
-            class="text-sm bg-gray-800 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition">
-            + Tambah Akun
-        </button>
-    </div>
+        {{-- HEADER --}}
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                    <span
+                        class="bg-white text-indigo-600 p-2 rounded-2xl border border-slate-100 shadow-sm text-2xl">💳</span>
+                    Dompet & RDN
+                </h1>
+                <p class="text-slate-500 font-medium mt-2 ml-1">Kelola akun dan sumber dana Anda.</p>
+            </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {{-- TOMBOL AKSI --}}
+            <div class="flex flex-wrap gap-3">
+                {{-- 🔥 TOMBOL TUKAR VALAS (BARU) 🔥 --}}
+                <a href="{{ route('exchange.index') }}"
+                    class="bg-amber-100 text-amber-700 border border-amber-200 px-5 py-3 rounded-2xl font-bold hover:bg-amber-200 transition flex items-center gap-2 shadow-sm">
+                    💱 Tukar Valas
+                </a>
 
-        @foreach($wallets as $index => $w)
-        @php
-        $colors = [
-        'from-gray-900 via-gray-800 to-black', // Hitam (Default)
-        'from-blue-900 via-blue-800 to-blue-600', // Biru (BCA/Mandiri)
-        'from-green-900 via-green-800 to-green-600', // Hijau (Gopay/Tokped)
-        'from-purple-900 via-purple-800 to-purple-600' // Ungu (OVO/Ajaib)
-        ];
-        $bgClass = $colors[$index % count($colors)]; // Rotasi warna
-        @endphp
+                {{-- Tombol Riwayat --}}
+                <a href="{{ route('wallet.history') }}"
+                    class="bg-white text-slate-600 border border-slate-200 px-5 py-3 rounded-2xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                    📜 Riwayat
+                </a>
 
+                {{-- Tombol Tambah Akun --}}
+                <button @click="showCreateModal = true"
+                    class="bg-indigo-600 text-white px-5 py-3 rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 transition flex items-center gap-2">
+                    ➕ Tambah Akun
+                </button>
+            </div>
+        </div>
+
+        {{-- TOTAL SALDO CARD --}}
         <div
-            class="bg-gradient-to-br {{ $bgClass }} rounded-2xl shadow-xl p-6 text-white relative overflow-hidden h-56 flex flex-col justify-between border border-white/10 hover-scale cursor-pointer group">
-
-            <div
-                class="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl group-hover:opacity-20 transition">
+            class="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl shadow-slate-200">
+            <div class="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-indigo-500 rounded-full opacity-20 blur-3xl">
+            </div>
+            <div class="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-teal-500 rounded-full opacity-20 blur-3xl">
             </div>
 
-            <div class="flex justify-between items-start z-10">
-                <div>
-                    <p class="text-xs text-white/70 tracking-widest uppercase">{{ $w->bank_name }}</p>
-                    <p class="font-bold text-lg">{{ $w->account_name }}</p>
+            <div class="relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
+                <div class="flex items-center gap-6">
+                    <div
+                        class="w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-md flex items-center justify-center text-4xl shadow-inner border border-white/20">
+                        💰
+                    </div>
+                    <div>
+                        <p class="text-slate-300 text-sm font-bold uppercase tracking-wider mb-1">Estimasi Total Aset
+                            (IDR)</p>
+                        <h2 class="text-4xl md:text-5xl font-black text-white tracking-tight">
+                            Rp {{ number_format($totalBalance, 0, ',', '.') }}
+                        </h2>
+                    </div>
                 </div>
-                <img src="https://img.icons8.com/color/48/ffffff/sim-card-chip.png" class="w-8 opacity-80" alt="chip">
-            </div>
-
-            <div class="z-10">
-                <p class="font-mono text-xl tracking-widest opacity-90">
-                    {{ chunk_split($w->account_number ?? '0000', 4, ' ') }}
-                </p>
-            </div>
-
-            <div class="flex justify-between items-end z-10">
-                <div>
-                    <p class="text-[10px] text-white/60 uppercase mb-1">Pemilik</p>
-                    <p class="font-medium text-sm">{{ substr(Auth::user()->name, 0, 15) }}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] text-white/60 uppercase mb-1">Saldo</p>
-                    <p class="font-bold text-xl">Rp {{ number_format($w->balance, 0, ',', '.') }}</p>
+                <div class="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-2xl border border-white/10">
+                    <span class="text-slate-200 font-medium text-sm">Tersebar di <b>{{ $wallets->count() }}</b>
+                        Akun</span>
                 </div>
             </div>
         </div>
-        @endforeach
 
+        {{-- GRID KARTU DOMPET --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($wallets as $w)
+            <div
+                class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col justify-between h-60 relative overflow-hidden group">
+
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <span
+                                class="text-xs font-black text-slate-400 uppercase tracking-widest">{{ $w->bank_name }}</span>
+                            <h3 class="font-bold text-slate-800 text-xl">{{ $w->account_name }}</h3>
+                        </div>
+                        <span
+                            class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold">{{ $w->currency }}</span>
+                    </div>
+                    <p class="font-mono text-slate-500 tracking-wider">
+                        {{ chunk_split($w->account_number ?? '****', 4, ' ') }}
+                    </p>
+                </div>
+
+                <div class="relative z-10 flex justify-between items-end mt-auto pt-4 border-t border-slate-50">
+                    <div>
+                        <p class="text-xs text-slate-400 font-bold uppercase">Saldo</p>
+                        <p class="text-2xl font-black text-slate-800">
+                            {{ $w->currency == 'USD' ? '$' : 'Rp' }} {{ number_format($w->balance, 0, ',', '.') }}
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        {{-- Tombol Edit --}}
+                        <a href="{{ route('wallet.edit', $w->id) }}"
+                            class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition"
+                            title="Edit Dompet">
+                            ✏️
+                        </a>
+                        {{-- Tombol Lihat History Spesifik --}}
+                        <a href="{{ route('wallet.history', ['wallet_id' => $w->id]) }}"
+                            class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-800 hover:text-white transition"
+                            title="Lihat Mutasi">
+                            📜
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+        </div>
     </div>
+
+    {{-- INCLUDE MODAL (Pastikan file partial ini ada) --}}
+    @include('wallet.partials.create-modal')
 </div>
-
-<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-    <h3 class="font-bold text-gray-700 mb-4 border-b pb-2 flex items-center gap-2">
-        📜 Mutasi Gabungan (Semua Dompet)
-    </h3>
-    <div class="overflow-y-auto max-h-[500px]">
-        <table class="w-full text-left">
-            <thead class="bg-gray-50 text-gray-500 text-xs uppercase sticky top-0">
-                <tr>
-                    <th class="p-3">Tanggal</th>
-                    <th class="p-3">Akun</th>
-                    <th class="p-3">Tipe</th>
-                    <th class="p-3 text-right">Nominal</th>
-                    <th class="p-3 text-center">Status</th>
-                </tr>
-            </thead>
-            <tbody class="text-sm divide-y divide-gray-100">
-                @forelse($cashHistory as $trx)
-                <tr class="hover:bg-gray-50 transition">
-                    <td class="p-3">
-                        <span class="font-bold text-gray-700">{{ $trx->created_at->format('d M') }}</span>
-                        <span class="text-xs text-gray-400 ml-1">{{ $trx->created_at->format('H:i') }}</span>
-                    </td>
-                    <td class="p-3">
-                        <span class="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-600">
-                            {{ $trx->wallet->account_name ?? 'Hapus' }}
-                        </span>
-                    </td>
-                    <td class="p-3">
-                        @if($trx->type == 'TOPUP')
-                        <span class="text-green-600 font-bold text-xs">TOP UP</span>
-                        @else
-                        <span class="text-orange-600 font-bold text-xs">TARIK</span>
-                        @endif
-                    </td>
-                    <td
-                        class="p-3 text-right font-mono font-bold {{ $trx->type == 'TOPUP' ? 'text-green-600' : 'text-orange-600' }}">
-                        {{ $trx->type == 'TOPUP' ? '+' : '-' }} {{ number_format(abs($trx->amount_cash), 0, ',', '.') }}
-                    </td>
-                    <td class="p-3 text-center">
-                        @if($trx->status == 'approved') ✅ @elseif($trx->status == 'pending') ⏳ @else ❌ @endif
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="5" class="p-8 text-center text-gray-400">Belum ada transaksi.</td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div id="addWalletModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
-        <h3 class="text-xl font-bold mb-4">➕ Tambah Dompet / RDN Baru</h3>
-
-        <form action="{{ route('wallet.store') }}" method="POST">
-            @csrf
-            <div class="mb-4">
-                <label class="block text-sm font-bold mb-1">Nama Akun</label>
-                <input type="text" name="account_name" placeholder="Cth: RDN Bibit, Tabungan BCA"
-                    class="w-full border rounded p-2" required>
-            </div>
-            <div class="mb-4">
-                <label class="block text-sm font-bold mb-1">Bank / Platform</label>
-                <input type="text" name="bank_name" placeholder="Cth: Bank Jago, Ajaib, Tokocrypto"
-                    class="w-full border rounded p-2" required>
-            </div>
-            <div class="mb-6">
-                <label class="block text-sm font-bold mb-1">Nomor Rekening (Opsional)</label>
-                <input type="number" name="account_number" placeholder="Cth: 1234567890"
-                    class="w-full border rounded p-2">
-            </div>
-
-            <div class="flex justify-end gap-2">
-                <button type="button" onclick="document.getElementById('addWalletModal').classList.add('hidden')"
-                    class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Batal</button>
-                <button type="submit"
-                    class="px-4 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700">Simpan</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 @endsection
