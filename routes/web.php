@@ -117,6 +117,8 @@ Route::middleware(['auth'])->group(function () {
             'price' => $asset ? $asset->current_price : 0
         ]);
     })->name('api.price');
+    // API INTERNAL: Untuk ambil data chart via Javascript
+        Route::get('/api/chart-data', [App\Http\Controllers\DashboardController::class, 'getChartData'])->name('api.chart');
 });
 
 

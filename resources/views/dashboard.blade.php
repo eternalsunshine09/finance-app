@@ -5,7 +5,7 @@
 
 @section('content')
 
-{{-- 1. TOMBOL ADMIN (Hanya muncul jika admin) --}}
+{{-- 1. TOMBOL ADMIN --}}
 @if(Auth::user()->role == 'admin')
 <div class="mb-8">
     <a href="{{ route('admin.dashboard') }}"
@@ -19,23 +19,21 @@
 {{-- 2. STATS CARDS (GRID UTAMA) --}}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
 
-    {{-- Total Kekayaan (Kartu Utama - Gradient Modern) --}}
+    {{-- Total Kekayaan --}}
     <div class="md:col-span-1 relative group">
         <div
-            class="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500">
+            class="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-[2rem] blur opacity-20 group-hover:opacity-40 transition duration-500">
         </div>
-
         <div
-            class="relative bg-white border border-slate-100 p-6 rounded-2xl h-full flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+            class="relative bg-white border border-slate-100 p-8 rounded-[2rem] h-full flex flex-col justify-between overflow-hidden shadow-sm hover:shadow-md transition-shadow">
             <div>
                 <h3 class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Total Kekayaan Bersih</h3>
                 <div class="flex items-baseline gap-1">
                     <span class="text-slate-500 text-lg font-medium">Rp</span>
-                    <span class="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">
+                    <span class="text-3xl md:text-4xl font-black text-slate-800 tracking-tight">
                         {{ number_format($rekap['total_kekayaan'], 0, ',', '.') }}
                     </span>
                 </div>
-                {{-- Badge Kenaikan --}}
                 <div
                     class="mt-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-bold">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,7 +43,6 @@
                     <span>+2.4% Bulan ini</span>
                 </div>
             </div>
-
             <div class="absolute right-0 top-0 p-6 opacity-5 pointer-events-none">
                 <svg class="w-32 h-32 text-indigo-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
@@ -55,12 +52,11 @@
         </div>
     </div>
 
-    {{-- Kartu Pecahan (Cash & Invest) --}}
+    {{-- Kartu Pecahan --}}
     <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-
         {{-- Saldo Tunai --}}
         <div
-            class="bg-white p-6 rounded-2xl relative overflow-hidden shadow-sm border border-slate-100 group hover:border-emerald-200 transition">
+            class="bg-white p-6 rounded-[2rem] relative overflow-hidden shadow-sm border border-slate-100 group hover:border-emerald-200 transition">
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-4">
                     <div class="p-2 bg-emerald-50 rounded-xl text-emerald-600">
@@ -74,11 +70,9 @@
                         class="text-[10px] uppercase text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded-lg">Available</span>
                 </div>
                 <h3 class="text-slate-500 text-xs font-bold uppercase">Kas Tunai (IDR)</h3>
-                <p class="text-2xl font-bold text-slate-800 mt-1">
-                    Rp {{ number_format($rekap['uang_tunai'], 0, ',', '.') }}
-                </p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">Rp
+                    {{ number_format($rekap['uang_tunai'], 0, ',', '.') }}</p>
             </div>
-            {{-- Hiasan Background --}}
             <div
                 class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-50 rounded-full blur-xl group-hover:bg-emerald-100 transition">
             </div>
@@ -86,7 +80,7 @@
 
         {{-- Nilai Aset Investasi --}}
         <div
-            class="bg-white p-6 rounded-2xl relative overflow-hidden shadow-sm border border-slate-100 group hover:border-blue-200 transition">
+            class="bg-white p-6 rounded-[2rem] relative overflow-hidden shadow-sm border border-slate-100 group hover:border-blue-200 transition">
             <div class="relative z-10">
                 <div class="flex items-center justify-between mb-4">
                     <div class="p-2 bg-blue-50 rounded-xl text-blue-600">
@@ -99,70 +93,140 @@
                         class="text-[10px] uppercase text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-lg">Invested</span>
                 </div>
                 <h3 class="text-slate-500 text-xs font-bold uppercase">Aset Pasar (Est. IDR)</h3>
-                <p class="text-2xl font-bold text-slate-800 mt-1">
-                    Rp {{ number_format($rekap['nilai_investasi'], 0, ',', '.') }}
-                </p>
+                <p class="text-2xl font-bold text-slate-800 mt-1">Rp
+                    {{ number_format($rekap['nilai_investasi'], 0, ',', '.') }}</p>
             </div>
             <div
                 class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-50 rounded-full blur-xl group-hover:bg-blue-100 transition">
             </div>
         </div>
-
     </div>
 </div>
 
 {{-- 3. SECTION CHART (PERTUMBUHAN & ALOKASI) --}}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8" x-data="chartHandler()">
 
-    {{-- LINE CHART (Pertumbuhan Portfolio) --}}
-    <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                <span class="w-1.5 h-6 bg-indigo-500 rounded-full"></span>
-                Pertumbuhan Portfolio
-            </h3>
-            <div class="flex bg-slate-100 rounded-lg p-1">
-                <button class="px-3 py-1 text-xs font-bold text-indigo-600 bg-white rounded shadow-sm">1B</button>
-                <button class="px-3 py-1 text-xs font-bold text-slate-500 hover:text-slate-800">3B</button>
-                <button class="px-3 py-1 text-xs font-bold text-slate-500 hover:text-slate-800">YTD</button>
+    {{-- LINE CHART (Cashflow Trend) --}}
+    <div class="lg:col-span-2 bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm relative">
+
+        {{-- Header Chart --}}
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div>
+                <h3 class="font-bold text-slate-800 text-lg">Cashflow Trend</h3>
+                <p class="text-slate-400 text-xs font-medium mt-1">Pergerakan dana masuk & keluar</p>
+            </div>
+
+            {{-- Toolbar Filter --}}
+            <div class="flex flex-wrap items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+
+                {{-- Dropdown Bulan & Tahun --}}
+                <div x-show="filterType === 'custom'" x-transition class="flex gap-2 mr-2">
+                    <select x-model="selectedMonth" @change="fetchData('custom')"
+                        class="text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg py-1.5 px-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        @foreach(range(1, 12) as $m)
+                        <option value="{{ $m }}" {{ date('n') == $m ? 'selected' : '' }}>
+                            {{ date('M', mktime(0, 0, 0, $m, 1)) }}</option>
+                        @endforeach
+                    </select>
+                    <select x-model="selectedYear" @change="fetchData('custom')"
+                        class="text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg py-1.5 px-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                        @foreach(range(date('Y'), date('Y')-3) as $y)
+                        <option value="{{ $y }}">{{ $y }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                {{-- Tombol Filter --}}
+                <button @click="fetchData('1D')"
+                    :class="filterType === '1D' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200">1D</button>
+                <button @click="fetchData('1W')"
+                    :class="filterType === '1W' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200">1W</button>
+                <button @click="fetchData('1M')"
+                    :class="filterType === '1M' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200">1M</button>
+                <button @click="fetchData('1Y')"
+                    :class="filterType === '1Y' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
+                    class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all duration-200">1Y</button>
+
+                {{-- Tombol Custom --}}
+                <button @click="filterType = 'custom'; fetchData('custom')"
+                    :class="filterType === 'custom' ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-slate-600 hover:bg-white'"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200">
+                    <i class="fas fa-calendar-alt text-xs"></i>
+                </button>
             </div>
         </div>
-        <div class="w-full h-64">
+
+        {{-- Loading Overlay --}}
+        <div x-show="isLoading" x-transition.opacity
+            class="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center rounded-[2rem]">
+            <div class="flex flex-col items-center">
+                <svg class="animate-spin h-8 w-8 text-indigo-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                    </path>
+                </svg>
+                <span class="text-xs font-bold text-indigo-600">Memuat...</span>
+            </div>
+        </div>
+
+        {{-- Chart Canvas --}}
+        <div class="w-full h-72">
             <canvas id="growthChart"></canvas>
         </div>
     </div>
 
     {{-- DOUGHNUT CHART (Alokasi) --}}
-    <div class="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col items-center justify-center">
-        <h3 class="font-bold text-slate-800 mb-4 w-full text-left flex items-center gap-2">
-            <span class="w-1.5 h-6 bg-purple-500 rounded-full"></span>
-            Alokasi Aset
-        </h3>
-        <div class="w-full h-56 relative">
+    <div class="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm flex flex-col justify-between">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-slate-800 text-lg">Alokasi Aset</h3>
+            <button class="text-slate-300 hover:text-indigo-600 transition"><i class="fas fa-chart-pie"></i></button>
+        </div>
+
+        <div class="relative w-full h-56 flex items-center justify-center">
             <canvas id="allocationChart"></canvas>
-            {{-- Text Tengah Donut --}}
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="text-center">
-                    <span class="text-xs text-slate-400 block font-medium">Total</span>
-                    <span class="text-lg font-bold text-slate-800">100%</span>
-                </div>
+            <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">Total</span>
+                <span class="text-2xl font-black text-slate-800">100%</span>
             </div>
         </div>
-        {{-- Legend Placeholder (Otak atik via JS jika perlu) --}}
-        <div class="mt-4 flex flex-wrap gap-2 justify-center"></div>
+
+        {{-- Legend --}}
+        <div class="mt-6 space-y-3">
+            @php $colors = ['#fb923c', '#a855f7', '#3b82f6', '#10b981', '#f472b6', '#6366f1']; @endphp
+            @foreach($chartLabels as $index => $label)
+            @if($index < 3) <div class="flex justify-between items-center text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full"
+                        style="background-color: {{ $colors[$index] ?? '#cbd5e1' }}"></span>
+                    <span class="text-slate-600 font-medium">{{ $label }}</span>
+                </div>
+                <span class="font-bold text-slate-800">
+                    @php
+                    $total = array_sum($chartValues);
+                    $val = $chartValues[$index];
+                    $percent = $total > 0 ? ($val / $total) * 100 : 0;
+                    @endphp
+                    {{ number_format($percent, 1) }}%
+                </span>
+        </div>
+        @endif
+        @endforeach
     </div>
 </div>
+</div>
 
-{{-- 4. TABEL ASET (Clean Light Version) --}}
-<div class="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-    <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+{{-- 4. TABEL ASET --}}
+<div class="bg-white rounded-[2rem] overflow-hidden border border-slate-200 shadow-sm">
+    <div class="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
         <h3 class="font-bold text-slate-800 text-lg">Portofolio Aset</h3>
         <a href="{{ route('buy') }}"
-            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-indigo-200 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Beli Aset
+            class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-indigo-200 flex items-center gap-2">
+            <i class="fas fa-plus"></i> Beli Aset
         </a>
     </div>
 
@@ -170,31 +234,27 @@
         <table class="w-full text-left">
             <thead>
                 <tr
-                    class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b border-slate-100 font-semibold">
-                    <th class="py-4 px-6">Instrument</th>
-                    <th class="py-4 px-6 text-right">Balance</th>
-                    <th class="py-4 px-6 text-right">Avg. Price</th>
-                    <th class="py-4 px-6 text-right">Market Value</th>
-                    <th class="py-4 px-6 text-center">Profit/Loss</th>
-                    <th class="py-4 px-6 text-center">Action</th>
+                    class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b border-slate-100 font-bold">
+                    <th class="py-5 px-8">Instrument</th>
+                    <th class="py-5 px-8 text-right">Balance</th>
+                    <th class="py-5 px-8 text-right">Avg. Price</th>
+                    <th class="py-5 px-8 text-right">Market Value</th>
+                    <th class="py-5 px-8 text-center">Profit/Loss</th>
+                    <th class="py-5 px-8 text-center">Action</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 text-sm">
                 @forelse($detail_aset as $item)
-
                 @php
                 $isCrypto = isset($item['type']) && $item['type'] == 'Crypto';
                 $currency = $isCrypto ? '$' : 'Rp';
                 $decimal = $isCrypto ? 2 : 0;
                 $dec_point = $isCrypto ? '.' : ',';
                 $thousands_sep = $isCrypto ? ',' : '.';
-
                 $symbol = strtoupper($item['aset']);
 
                 // Logic Warna Icon Pastel
-                $iconBg = 'bg-slate-100';
-                $iconColor = 'text-slate-600';
-
+                $iconBg = 'bg-slate-100'; $iconColor = 'text-slate-600';
                 if($symbol == 'BTC') { $iconBg = 'bg-orange-50'; $iconColor = 'text-orange-500'; }
                 elseif($symbol == 'ETH') { $iconBg = 'bg-purple-50'; $iconColor = 'text-purple-500'; }
                 elseif($symbol == 'USDT') { $iconBg = 'bg-emerald-50'; $iconColor = 'text-emerald-500'; }
@@ -202,16 +262,16 @@
                 elseif($symbol == 'GOTO') { $iconBg = 'bg-green-50'; $iconColor = 'text-green-600'; }
                 @endphp
 
-                <tr class="hover:bg-slate-50 transition duration-150 group">
-                    <td class="py-4 px-6">
+                <tr class="hover:bg-slate-50/80 transition duration-150 group">
+                    <td class="py-5 px-8">
                         <div class="flex items-center gap-4">
                             <div
-                                class="w-10 h-10 rounded-xl {{ $iconBg }} flex items-center justify-center font-bold text-sm {{ $iconColor }} border border-slate-100">
+                                class="w-10 h-10 rounded-xl {{ $iconBg }} flex items-center justify-center font-bold text-sm {{ $iconColor }} border border-slate-100 shadow-sm">
                                 {{ substr($symbol, 0, 1) }}
                             </div>
                             <div>
                                 <span class="font-bold text-slate-800 block text-base">{{ $item['aset'] }}</span>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 mt-0.5">
                                     <span class="text-xs text-slate-500">{{ $item['nama_lengkap'] }}</span>
                                     <span
                                         class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border {{ $isCrypto ? 'bg-orange-50 border-orange-100 text-orange-500' : 'bg-blue-50 border-blue-100 text-blue-500' }}">
@@ -221,39 +281,27 @@
                             </div>
                         </div>
                     </td>
-
-                    {{-- Jumlah Unit --}}
-                    <td class="py-4 px-6 text-right">
+                    <td class="py-5 px-8 text-right">
                         <span
-                            class="font-mono font-medium text-slate-700">{{ number_format($item['jumlah'], 4) }}</span>
-                        <span class="text-xs text-slate-400 ml-1">Unit</span>
+                            class="font-mono font-bold text-slate-700 block">{{ number_format($item['jumlah'], 4) }}</span>
+                        <span class="text-xs text-slate-400">Unit</span>
                     </td>
-
-                    {{-- Modal --}}
-                    <td class="py-4 px-6 text-right text-slate-500 font-mono text-xs">
+                    <td class="py-5 px-8 text-right text-slate-500 font-mono text-xs">
                         {{ $currency }} {{ number_format($item['modal'], $decimal, $dec_point, $thousands_sep) }}
                     </td>
-
-                    {{-- Nilai Sekarang --}}
-                    <td class="py-4 px-6 text-right">
-                        <div class="font-bold text-slate-800 font-mono">
-                            {{ $currency }}
-                            {{ number_format($item['nilai_sekarang'], $decimal, $dec_point, $thousands_sep) }}
-                        </div>
+                    <td class="py-5 px-8 text-right">
+                        <div class="font-bold text-slate-800 font-mono">{{ $currency }}
+                            {{ number_format($item['nilai_sekarang'], $decimal, $dec_point, $thousands_sep) }}</div>
                         @if($isCrypto)
-                        <div class="text-[10px] text-slate-400">
-                            ≈ Rp {{ number_format($item['nilai_idr'], 0, ',', '.') }}
-                        </div>
+                        <div class="text-[10px] text-slate-400">≈ Rp
+                            {{ number_format($item['nilai_idr'], 0, ',', '.') }}</div>
                         @endif
                     </td>
-
-                    {{-- Profit Loss --}}
-                    <td class="py-4 px-6 text-center">
+                    <td class="py-5 px-8 text-center">
                         @php
                         $persentase = ($item['modal'] > 0) ? ($item['cuan'] / $item['modal']) * 100 : 0;
                         $isProfit = $item['cuan'] >= 0;
                         @endphp
-
                         <div class="inline-flex flex-col items-end">
                             <span
                                 class="px-2 py-1 rounded-md text-xs font-bold {{ $isProfit ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600' }}">
@@ -266,25 +314,18 @@
                             </span>
                         </div>
                     </td>
-
-                    {{-- Aksi --}}
-                    <td class="py-4 px-6 text-center">
-                        <div class="flex justify-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <td class="py-5 px-8 text-center">
+                        <div
+                            class="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <a href="{{ route('sell', ['symbol' => $item['aset']]) }}"
                                 class="p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition tooltip"
                                 title="Jual Aset">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                                </svg>
+                                <i class="fas fa-minus"></i>
                             </a>
                             <a href="{{ route('buy') }}"
                                 class="p-2 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-500 hover:text-white transition tooltip"
                                 title="Beli Lagi">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                                </svg>
+                                <i class="fas fa-plus"></i>
                             </a>
                         </div>
                     </td>
@@ -294,11 +335,7 @@
                     <td colspan="6" class="py-12 text-center text-slate-400">
                         <div class="flex flex-col items-center">
                             <div class="p-4 bg-slate-50 rounded-full mb-3">
-                                <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                        d="M20 12H4"></path>
-                                </svg>
+                                <i class="fas fa-folder-open text-2xl text-slate-300"></i>
                             </div>
                             <p class="mb-3 font-medium text-slate-600">Portofolio kamu masih kosong.</p>
                             <a href="{{ route('buy') }}"
@@ -317,32 +354,19 @@
 @endsection
 
 @section('scripts')
-{{-- Script Chart telah disesuaikan warnanya ke Tema Indigo/Pastel --}}
 <script>
-// --- 1. DOUGHNUT CHART (ALOKASI) ---
+// --- 1. DOUGHNUT CHART ---
 const ctxAlloc = document.getElementById('allocationChart');
-// Ambil Data dengan aman
-const labels = @json($chartLabels ?? []);
-const dataValues = @json($chartValues ?? []);
-
-if (labels.length > 0) {
+if (ctxAlloc) {
     new Chart(ctxAlloc, {
         type: 'doughnut',
         data: {
-            labels: labels,
+            labels: @json($chartLabels ?? []),
             datasets: [{
-                data: dataValues,
-                backgroundColor: [
-                    '#fb923c', // Orange (BTC) - Pastel
-                    '#a855f7', // Purple (ETH) - Pastel
-                    '#3b82f6', // Blue (Stock)
-                    '#10b981', // Emerald (Cash)
-                    '#f472b6', // Pink
-                    '#6366f1' // Indigo
-                ],
-                borderWidth: 2,
-                borderColor: '#ffffff', // Border putih agar menyatu dengan background
-                hoverOffset: 15
+                data: @json($chartValues ?? []),
+                backgroundColor: ['#fb923c', '#a855f7', '#3b82f6', '#10b981', '#f472b6', '#6366f1'],
+                borderWidth: 0,
+                hoverOffset: 10
             }]
         },
         options: {
@@ -352,114 +376,132 @@ if (labels.length > 0) {
             plugins: {
                 legend: {
                     display: false
-                },
-                tooltip: {
-                    backgroundColor: '#fff',
-                    titleColor: '#1e293b',
-                    bodyColor: '#475569',
-                    borderColor: '#e2e8f0',
-                    borderWidth: 1,
-                    padding: 12,
-                    boxPadding: 4,
-                    displayColors: true,
-                    usePointStyle: true,
                 }
             }
         }
     });
 }
 
-// --- 2. LINE CHART (REAL DATA) ---
-const ctxGrowth = document.getElementById('growthChart').getContext('2d');
+// --- 2. DYNAMIC LINE CHART ---
+function chartHandler() {
+    return {
+        filterType: '1M',
+        selectedMonth: new Date().getMonth() + 1,
+        selectedYear: new Date().getFullYear(),
+        isLoading: false,
+        chartInstance: null,
 
-// Gradient Warna Indigo untuk Chart
-const gradient = ctxGrowth.createLinearGradient(0, 0, 0, 400);
-gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)'); // Indigo pudar
-gradient.addColorStop(1, 'rgba(99, 102, 241, 0)'); // Transparent
+        init() {
+            // Saat pertama load, panggil data 1M
+            this.fetchData('1M');
+        },
 
-const historyLabels = @json($chartLabels);
-const historyValues = @json($chartValues);
+        async fetchData(type) {
+            this.filterType = type;
+            this.isLoading = true;
 
-new Chart(ctxGrowth, {
-    type: 'line',
-    data: {
-        labels: historyLabels.length ? historyLabels : ['Hari Ini'],
-        datasets: [{
-            label: 'Total Aset',
-            data: historyValues.length ? historyValues : [{
-                {
-                    $rekap['total_kekayaan']
+            try {
+                let url = `{{ route('api.chart') }}?filter=${type}`;
+                if (type === 'custom') {
+                    url += `&month=${this.selectedMonth}&year=${this.selectedYear}`;
                 }
-            }],
-            borderColor: '#6366f1', // Indigo Primary
-            backgroundColor: gradient,
-            borderWidth: 3,
-            pointBackgroundColor: '#fff',
-            pointBorderColor: '#6366f1',
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            fill: true,
-            tension: 0.4
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
-            },
-            tooltip: {
-                mode: 'index',
-                intersect: false,
-                backgroundColor: '#fff',
-                titleColor: '#1e293b',
-                bodyColor: '#6366f1',
-                borderColor: '#e2e8f0',
-                borderWidth: 1,
-                padding: 10,
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (this.chartInstance) {
+                    this.chartInstance.destroy(); // Hancurkan chart lama agar animasi ulang
+                }
+                this.renderChart(data.labels, data.values);
+
+            } catch (error) {
+                console.error("Gagal load chart:", error);
+            } finally {
+                setTimeout(() => {
+                    this.isLoading = false;
+                }, 300);
+            }
+        },
+
+        renderChart(labels, values) {
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+            gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+            this.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Cashflow',
+                        data: values,
+                        borderColor: '#6366f1',
+                        backgroundColor: gradient,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#6366f1',
+                        pointBorderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: '#fff',
+                            titleColor: '#1e293b',
+                            bodyColor: '#6366f1',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return ' Rp ' + new Intl.NumberFormat('id-ID').format(context.parsed.y);
+                                }
+                            }
                         }
-                        label += new Intl.NumberFormat('id-ID', {
-                            style: 'currency',
-                            currency: 'IDR'
-                        }).format(context.parsed.y);
-                        return label;
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                maxTicksLimit: 6
+                            }
+                        },
+                        y: {
+                            border: {
+                                display: false
+                            },
+                            grid: {
+                                color: '#f1f5f9'
+                            },
+                            ticks: {
+                                color: '#cbd5e1'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
                     }
                 }
-            }
-        },
-        scales: {
-            x: {
-                grid: {
-                    display: false
-                },
-                ticks: {
-                    color: '#94a3b8', // Slate-400
-                    maxTicksLimit: 7
-                }
-            },
-            y: {
-                grid: {
-                    color: '#f1f5f9', // Slate-100 (Garis halus)
-                    borderDash: [5, 5]
-                },
-                ticks: {
-                    display: false
-                }
-            }
-        },
-        interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false
+            });
         }
     }
-});
+}
 </script>
 @endsection

@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use App\Models\Wallet;
 use App\Models\Portfolio;
 use App\Models\Asset;
 use App\Models\ExchangeRate;
-use App\Models\PortfolioHistory; // <--- JANGAN LUPA IMPORT MODEL BARU INI
+use App\Models\Transaction; // Pastikan ini ada
+use App\Models\PortfolioHistory;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -91,44 +94,16 @@ class DashboardController extends Controller
             }
         }
 
-        // ---------------------------------------------------------
-        // FITUR BARU: HISTORY PORTFOLIO (LINE CHART)
-        // ---------------------------------------------------------
-
+        // --- HISTORY RECORDING (Otomatis Simpan Total Harian) ---
         $totalKekayaanSaatIni = $totalCashIDR + $totalInvestasiIDR;
         $today = now()->format('Y-m-d');
 
-        // STEP 6: SIMPAN/UPDATE DATA HARI INI KE DATABASE
-        // Ini akan berjalan otomatis setiap user buka dashboard
         PortfolioHistory::updateOrCreate(
             ['user_id' => $userId, 'date' => $today],
             ['total_value' => $totalKekayaanSaatIni]
         );
 
-        // STEP 7: AMBIL DATA HISTORY 30 HARI TERAKHIR
-        $histories = PortfolioHistory::where('user_id', $userId)
-                        ->orderBy('date', 'asc') // Urutkan dari tanggal lama ke baru
-                        ->limit(30)
-                        ->get();
-
-        // Format data untuk Chart.js (Line Chart)
-        $lineChartLabels = [];
-        $lineChartValues = [];
-
-        foreach($histories as $h) {
-            $lineChartLabels[] = $h->date->format('d M'); // Contoh: "19 Jan"
-            $lineChartValues[] = $h->total_value;
-        }
-
-        // Jika user baru (history kosong), masukkan data hari ini saja agar chart tidak error
-        if (count($lineChartLabels) == 0) {
-            $lineChartLabels[] = now()->format('d M');
-            $lineChartValues[] = $totalKekayaanSaatIni;
-        }
-
-        // ---------------------------------------------------------
-
-        // 8. Kirim Semua Data ke View
+        // Kirim Data ke View
         return view('dashboard', [
             'user' => $user->name, 
             'rekap' => [
@@ -137,16 +112,76 @@ class DashboardController extends Controller
                 'total_kekayaan' => $totalKekayaanSaatIni
             ],
             'detail_aset' => $daftarAset,
-            
-            // Data untuk Donut Chart (Alokasi)
             'chartLabels' => $donutLabels, 
             'chartValues' => $donutValues,
-            
-            // Data untuk Line Chart (Pertumbuhan - BARU)
-            'lineChartLabels' => $lineChartLabels,
-            'lineChartValues' => $lineChartValues,
-            
             'usdRate' => $usdRate
+        ]);
+    }
+
+    // --- API UNTUK CHART DINAMIS ---
+    public function getChartData(Request $request)
+    {
+        $user = Auth::user();
+        $filter = $request->query('filter', '1M'); // Default 1 Bulan
+        $month = $request->query('month');
+        $year = $request->query('year');
+
+        // Logic Filter Waktu
+        if ($filter == 'custom' && $month && $year) {
+            $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+            $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+            $formatGroup = 'd M'; // 01 Jan
+        } 
+        elseif ($filter == '1D') {
+            $startDate = now()->startOfDay();
+            $endDate = now()->endOfDay();
+            $formatGroup = 'H:00'; // 13:00
+        }
+        elseif ($filter == '1W') {
+            $startDate = now()->subDays(7);
+            $endDate = now();
+            $formatGroup = 'D, d M'; // Mon, 12 Jan
+        }
+        elseif ($filter == '1Y') {
+            $startDate = now()->subYear();
+            $endDate = now();
+            $formatGroup = 'M Y'; // Jan 2024
+        }
+        else { // Default 1M
+            $startDate = now()->subMonth();
+            $endDate = now();
+            $formatGroup = 'd M';
+        }
+
+        // Ambil Data Transaksi (Cashflow)
+        // Kita hitung pergerakan uang (Masuk - Keluar) per periode
+        $transactions = Transaction::where('user_id', $user->id)
+                        ->where('status', 'approved')
+                        ->whereBetween('date', [$startDate, $endDate])
+                        ->orderBy('date', 'asc')
+                        ->get()
+                        ->groupBy(function($item) use ($filter, $formatGroup) {
+                            return Carbon::parse($item->date)->format($formatGroup);
+                        });
+
+        $labels = [];
+        $values = [];
+
+        foreach ($transactions as $date => $group) {
+            $labels[] = $date;
+            // Sum amount_cash (Positif = Masuk, Negatif = Keluar)
+            $values[] = $group->sum('amount_cash');
+        }
+
+        // Jika data kosong, berikan array kosong agar chart tidak error
+        if (empty($labels)) {
+            $labels = [];
+            $values = [];
+        }
+
+        return response()->json([
+            'labels' => $labels,
+            'values' => $values
         ]);
     }
 }
