@@ -13,9 +13,16 @@ return new class extends Migration
     {
         Schema::create('wallets', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Punya siapa?
-            $table->string('currency', 3); // Contoh: IDR, USD, JPY
-            $table->decimal('balance', 15, 2)->default(0); // Saldo (pakai decimal biar akurat)
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            
+            // Urutan di sini menentukan urutan di database
+            // HAPUS ->after(...) di baris-baris ini:
+            $table->string('currency', 3); 
+            $table->string('bank_name')->default('Cash'); 
+            $table->string('account_name')->default('Main Wallet');
+            $table->string('account_number')->nullable();
+            
+            $table->decimal('balance', 15, 2)->default(0);
             $table->timestamps();
         });
     }

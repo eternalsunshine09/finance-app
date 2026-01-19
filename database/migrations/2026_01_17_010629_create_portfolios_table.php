@@ -15,8 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('asset_symbol'); // Contoh: BBCA
+            $table->decimal('balance', 20, 8)->change();
             $table->decimal('quantity', 20, 10); // Jumlah aset (pakai desimal banyak biar support Crypto 0.00001 BTC)
             $table->decimal('average_buy_price', 15, 2); // Harga rata-rata beli
+            $table->decimal('average_price', 20, 2)->default(0);
             $table->timestamps();
             
             // Mencegah duplikat: Satu user hanya boleh punya satu baris per simbol aset

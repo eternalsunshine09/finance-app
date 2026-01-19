@@ -7,164 +7,238 @@ use App\Models\Wallet;
 use App\Models\Asset;
 use App\Models\Portfolio;
 use App\Models\Transaction;
-use Illuminate\Support\Facades\DB; // <--- Ini penting buat Database Transaction
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class TransactionController extends Controller
 {
-    public function showTopUpForm()
+    // ===========================
+    // 1. FITUR BELI ASET (FIXED)
+    // ===========================
+    
+    public function showBuyForm()
     {
-        return view('transactions.topup');
-    }
-    // FITUR 1: TOP UP SALDO (Uang Masuk)
-    // FITUR 1: TOP UP SALDO
-    public function topUp(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'amount' => 'required|numeric|min:10000',
-            'currency' => 'required|in:IDR,USD',
-        ]);
+        $user = Auth::user();
+        $assets = Asset::orderBy('name')->get();
+        
+        // Ambil SEMUA wallet (walau saldo 0) agar user bisa lihat opsinya
+        $wallets = Wallet::where('user_id', $user->id)->get();
 
-        // Gunakan DB::transaction
-        DB::transaction(function () use ($request) {
-            
-            $wallet = Wallet::firstOrCreate(
-                ['user_id' => $request->user_id, 'currency' => $request->currency],
-                ['balance' => 0]
-            );
-
-            Transaction::create([
-                'user_id' => $request->user_id,
-                'wallet_id' => $wallet->id,
-                'type' => 'TOPUP',
-                'amount_cash' => $request->amount,
-                'date' => now(),
-            ]);
-
-            $wallet->increment('balance', $request->amount);
-        });
-
-        // --- UBAH BAGIAN INI (DARI JSON KE REDIRECT) ---
-        return redirect()->route('dashboard')->with('success', 'Top Up Berhasil! Saldo sudah bertambah.');
+        return view('transactions.buy', compact('assets', 'wallets'));
     }
 
-    // FITUR 2: BELI ASET (Uang Keluar, Aset Masuk)
-    public function buyAsset(Request $request)
+    public function processBuy(Request $request)
     {
-        // 1. Validasi Input
         $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'wallet_id'    => 'required|exists:wallets,id',
             'asset_symbol' => 'required|exists:assets,symbol',
-            'quantity' => 'required|numeric|min:0.00000001', // Bisa beli pecahan kecil (crypto)
-            'price_per_unit' => 'required|numeric', // Harga saat ini
+            'buy_price'    => 'required|numeric|min:0',
+            'amount'       => 'required|numeric|min:0.00000001', 
         ]);
 
-        return DB::transaction(function () use ($request) {
-            // Hitung total uang yang dibutuhkan
-            $totalCost = $request->quantity * $request->price_per_unit;
+        $user = Auth::user();
+        $totalCost = $request->amount * $request->buy_price;
 
-            // A. Cek Apakah User Punya Saldo IDR Cukup?
-            // (Asumsi beli pakai IDR dulu biar simpel)
-            $wallet = Wallet::where('user_id', $request->user_id)
-                            ->where('currency', 'IDR')
-                            ->first();
+        DB::transaction(function () use ($request, $user, $totalCost) {
+            
+            // 1. Ambil Data Wallet & Aset
+            $wallet = Wallet::where('id', $request->wallet_id)
+                            ->where('user_id', $user->id)
+                            ->lockForUpdate()
+                            ->firstOrFail();
+                            
+            $asset = Asset::where('symbol', $request->asset_symbol)->firstOrFail();
 
-            if (!$wallet || $wallet->balance < $totalCost) {
-                return response()->json(['message' => 'Saldo tidak cukup!'], 400);
+            // Validasi Mata Uang
+            if ($asset->type == 'Crypto' && $wallet->currency != 'USD') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'wallet_id' => "Aset Crypto ({$asset->symbol}) wajib dibeli pakai Saldo USD."
+                ]);
             }
 
-            // B. Catat Transaksi
-            Transaction::create([
-                'user_id' => $request->user_id,
-                'wallet_id' => $wallet->id,
-                'type' => 'BUY',
-                'asset_symbol' => $request->asset_symbol,
-                'amount_cash' => -$totalCost, // Uang berkurang (negatif)
-                'amount_asset' => $request->quantity, // Aset bertambah (positif)
-                'price_per_unit' => $request->price_per_unit,
-                'date' => now(),
-            ]);
+            if ($asset->type == 'Stock' && $wallet->currency != 'IDR') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'wallet_id' => "Saham Indonesia ({$asset->symbol}) wajib dibeli pakai Saldo IDR."
+                ]);
+            }
 
-            // C. Potong Uang di Dompet
+            // Cek Saldo
+            if ($wallet->balance < $totalCost) {
+                $currencySymbol = ($wallet->currency == 'USD') ? '$' : 'Rp';
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount' => "Saldo tidak cukup! Butuh {$currencySymbol} " . number_format($totalCost, 2)
+                ]);
+            }
+
+            // Potong Saldo
             $wallet->decrement('balance', $totalCost);
 
-            // D. Update Portofolio (Logika Average Price)
-            $portfolio = Portfolio::firstOrNew([
-                'user_id' => $request->user_id,
-                'asset_symbol' => $request->asset_symbol
+            // ---------------------------------------------------------
+            // 🔥 PERBAIKAN DI SINI (Ganti 'amount' jadi 'quantity') 🔥
+            // ---------------------------------------------------------
+            
+            // Cari atau Buat Portfolio Baru
+            $portfolio = Portfolio::firstOrCreate(
+                ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
+                ['quantity' => 0, 'average_buy_price' => 0] // ✅ GANTI nama kolom
+            );
+
+            // Hitung Average Price (Average Down Logic)
+            // Gunakan $portfolio->average_buy_price (sesuai DB)
+            $oldTotalVal = $portfolio->quantity * $portfolio->average_buy_price; 
+            $newTotalVal = $oldTotalVal + $totalCost;
+            $newQuantity = $portfolio->quantity + $request->amount; 
+            
+            $newAvgPrice = $newQuantity > 0 ? $newTotalVal / $newQuantity : 0;
+
+            // Update Database Portfolio
+            $portfolio->update([
+                'quantity' => $newQuantity, 
+                'average_buy_price' => $newAvgPrice // ✅ GANTI nama kolom
             ]);
 
-            // Hitung harga rata-rata baru (Average Down/Up)
-            $oldQty = $portfolio->quantity ?? 0;
-            $oldAvg = $portfolio->average_buy_price ?? 0;
-            
-            // Rumus Average: ((QtyLama * HargaLama) + (QtyBaru * HargaBaru)) / TotalQty
-            $newAvg = (($oldQty * $oldAvg) + $totalCost) / ($oldQty + $request->quantity);
-
-            $portfolio->quantity = $oldQty + $request->quantity;
-            $portfolio->average_buy_price = $newAvg;
-            $portfolio->save();
-
-            return response()->json(['message' => 'Pembelian Berhasil!', 'portfolio' => $portfolio]);
+            // Catat Transaksi
+            Transaction::create([
+                'user_id' => $user->id,
+                'wallet_id' => $wallet->id,
+                'type' => 'BUY',
+                'status' => 'approved',
+                'asset_symbol' => $request->asset_symbol,
+                'amount' => $request->amount, 
+                'price_per_unit' => $request->buy_price,
+                'amount_cash' => -$totalCost,
+                'description' => "Beli " . $request->asset_symbol,
+                
+                // 🔥 ADD THIS LINE HERE:
+                'date' => $request->custom_date ?? now(), 
+                
+                // You had 'created_at' mapped to custom_date, which is fine, 
+                // but the database strictly requires a 'date' column too.
+                'created_at' => $request->custom_date ?? now(),
+            ]);
         });
+
+        return redirect()->route('wallet.index')->with('success', 'Pembelian Aset Berhasil!');
     }
 
-    // FITUR 3: JUAL ASET (Aset Keluar, Uang Masuk)
+    // ===========================
+    // 2. API HELPER (PENTING BUAT JS)
+    // ===========================
+    public function getPrice($symbol)
+    {
+        $asset = Asset::where('symbol', $symbol)->first();
+        return response()->json([
+            'price' => $asset ? $asset->current_price : 0
+        ]);
+    }
+
     public function sellAsset(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'asset_symbol' => 'required|exists:assets,symbol',
+            'user_id' => 'required',
+            'asset_symbol' => 'required',
             'quantity' => 'required|numeric|min:0.00000001',
             'price_per_unit' => 'required|numeric',
         ]);
 
-        return DB::transaction(function () use ($request) {
-            // A. Cek Apakah User Punya Asetnya?
+        DB::transaction(function () use ($request) {
             $portfolio = Portfolio::where('user_id', $request->user_id)
                                   ->where('asset_symbol', $request->asset_symbol)
                                   ->first();
 
-            // Validasi: Kalau gak punya aset ATAU jumlah yg mau dijual lebih besar dari yg dimiliki
             if (!$portfolio || $portfolio->quantity < $request->quantity) {
-                return response()->json(['message' => 'Gagal Jual: Aset tidak cukup!'], 400);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'quantity' => 'Jumlah aset yang dimiliki tidak cukup!',
+                ]);
             }
 
-            // Hitung uang yang didapat (Revenue)
             $totalRevenue = $request->quantity * $request->price_per_unit;
+            $wallet = Wallet::where('user_id', $request->user_id)->where('currency', 'IDR')->firstOrFail();
 
-            // B. Cari Dompet User (IDR)
-            $wallet = Wallet::where('user_id', $request->user_id)
-                            ->where('currency', 'IDR')
-                            ->firstOrFail();
-
-            // C. Catat Transaksi SELL
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
                 'type' => 'SELL',
                 'asset_symbol' => $request->asset_symbol,
-                'amount_cash' => $totalRevenue, // Uang bertambah (Positif)
-                'amount_asset' => -$request->quantity, // Aset berkurang (Negatif)
+                'amount_cash' => $totalRevenue,
+                'amount_asset' => -$request->quantity,
                 'price_per_unit' => $request->price_per_unit,
                 'date' => now(),
             ]);
 
-            // D. Kurangi Aset di Portofolio
             $portfolio->decrement('quantity', $request->quantity);
-
-            // E. Tambah Uang di Dompet
             $wallet->increment('balance', $totalRevenue);
-
-            return response()->json([
-                'message' => 'Penjualan Berhasil!', 
-                'sisa_aset' => $portfolio->quantity,
-                'uang_diterima' => $totalRevenue
-            ]);
         });
+
+        return redirect()->route('dashboard')
+            ->with('success', 'Berhasil menjual '.$request->quantity.' '.$request->asset_symbol);
     }
 
-    // FITUR 4: TARIK DANA (Withdraw)
+    // ===========================
+    // 3. FITUR TOP UP (UPDATED)
+    // ===========================
+    public function showTopUpForm()
+        {
+            $user = Auth::user();
+            
+            // Ambil semua dompet (termasuk yang saldo 0)
+            $wallets = Wallet::where('user_id', $user->id)->get();
+
+            return view('transactions.topup', compact('wallets'));
+        } 
+    
+        public function topUp(Request $request)
+    {
+        $request->validate([
+            'wallet_id'     => 'required|exists:wallets,id',
+            'amount'        => 'required|numeric|min:1',
+            // Gambar boleh dibuat nullable (opsional) kalau cuma pencatatan
+            'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg|max:2048', 
+        ]);
+
+        DB::transaction(function () use ($request) {
+            $user = Auth::user();
+            
+            // 1. Cek Upload Bukti (Opsional)
+            $proofPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $proofPath = $request->file('payment_proof')->store('receipts', 'public');
+            }
+
+            // 2. Ambil Dompet Tujuan
+            $wallet = Wallet::where('id', $request->wallet_id)
+                            ->where('user_id', $user->id)
+                            ->firstOrFail();
+
+            // 3. 🔥 UPDATE: LANGSUNG TAMBAH SALDO 🔥
+            $wallet->increment('balance', $request->amount);
+
+            // 4. Catat Transaksi (Status Langsung 'approved' / 'success')
+            Transaction::create([
+                'user_id'       => $user->id,
+                'wallet_id'     => $wallet->id,
+                'type'          => 'TOPUP',
+                'amount_cash'   => $request->amount,
+                'created_at' => $request->custom_date ?? now(),
+                'date'       => $request->custom_date ?? now(), // Jika ada kolom date
+                'status'        => 'approved', // ✅ Langsung Sukses
+                'description'   => 'Setor Tunai / Top Up Manual',
+                'payment_proof' => $proofPath 
+            ]);
+        });
+
+        return redirect()->route('wallet.index')->with('success', 'Saldo berhasil ditambahkan ke dompet!');
+    }
+
+    // ===========================
+    // 4. FITUR WITHDRAW (TARIK DANA)
+    // ===========================
+    public function showWithdrawForm()
+    {
+        return view('transactions.withdraw');
+    }
+
     public function withdraw(Request $request)
     {
         $request->validate([
@@ -173,29 +247,44 @@ class TransactionController extends Controller
             'currency' => 'required|in:IDR,USD',
         ]);
 
-        return DB::transaction(function () use ($request) {
-            // A. Cek Saldo
+        DB::transaction(function () use ($request) {
             $wallet = Wallet::where('user_id', $request->user_id)
                             ->where('currency', $request->currency)
                             ->first();
 
             if (!$wallet || $wallet->balance < $request->amount) {
-                return response()->json(['message' => 'Saldo tidak cukup untuk penarikan!'], 400);
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount' => 'Saldo tidak cukup untuk penarikan ini!',
+                ]);
             }
 
-            // B. Catat Transaksi WITHDRAW
             Transaction::create([
                 'user_id' => $request->user_id,
                 'wallet_id' => $wallet->id,
                 'type' => 'WITHDRAW',
-                'amount_cash' => -$request->amount, // Uang berkurang
-                'date' => now(),
+                'amount_cash' => -$request->amount,
+                'created_at' => $request->custom_date ?? now(),
+                'date'       => $request->custom_date ?? now(), // Jika ada kolom date
+                'status' => 'pending' 
             ]);
 
-            // C. Potong Saldo
             $wallet->decrement('balance', $request->amount);
-
-            return response()->json(['message' => 'Penarikan Berhasil!', 'sisa_saldo' => $wallet->balance]);
         });
+
+        return redirect()->route('dashboard')->with('success', 'Permintaan Penarikan Berhasil! Saldo diamankan menunggu transfer Admin.');
+    }
+
+    // ===========================
+    // 5. FITUR RIWAYAT TRANSAKSI
+    // ===========================
+    public function history()
+    {
+        $userId = Auth::id();
+        
+        $transactions = Transaction::where('user_id', $userId)
+                                   ->orderBy('created_at', 'desc')
+                                   ->paginate(10);
+
+        return view('transactions.history', compact('transactions'));
     }
 }
