@@ -5,6 +5,7 @@
 
 @section('content')
 
+{{-- Tombol Admin (Tidak Berubah) --}}
 @if(Auth::user()->role == 'admin')
 <div class="mb-6">
     <a href="{{ route('admin.dashboard') }}"
@@ -14,12 +15,14 @@
 </div>
 @endif
 
+{{-- KARTU RINGKASAN (REKAP) --}}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
     <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {{-- Uang Tunai --}}
         <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 relative overflow-hidden">
             <div class="relative z-10">
-                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Uang Tunai (IDR)</h3>
+                {{-- Ubah label jadi Estimasi agar user paham jika ada USD yang dikonversi --}}
+                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Total Kas Tunai (Est. IDR)</h3>
                 <p class="text-3xl font-black text-gray-800 mt-2">
                     Rp {{ number_format($rekap['uang_tunai'], 0, ',', '.') }}
                 </p>
@@ -27,9 +30,10 @@
             <div class="absolute right-4 top-6 text-green-100 text-6xl font-bold opacity-50">Rp</div>
         </div>
 
+        {{-- Nilai Aset --}}
         <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 relative overflow-hidden">
             <div class="relative z-10">
-                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Nilai Aset Pasar</h3>
+                <h3 class="text-gray-500 text-xs font-bold uppercase tracking-wider">Nilai Aset Pasar (Est. IDR)</h3>
                 <p class="text-3xl font-black text-gray-800 mt-2">
                     Rp {{ number_format($rekap['nilai_investasi'], 0, ',', '.') }}
                 </p>
@@ -37,6 +41,7 @@
             <div class="absolute right-4 top-6 text-blue-100 text-6xl font-bold opacity-50">📈</div>
         </div>
 
+        {{-- Total Kekayaan --}}
         <div
             class="md:col-span-2 bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl shadow-lg p-6 text-white relative">
             <h3 class="text-purple-200 text-xs font-bold uppercase tracking-wider">Total Kekayaan Bersih</h3>
@@ -47,6 +52,7 @@
         </div>
     </div>
 
+    {{-- Chart --}}
     <div class="bg-white rounded-xl shadow-sm p-6 flex flex-col items-center justify-center">
         <h3 class="text-gray-500 text-xs font-bold uppercase mb-4">Alokasi Portofolio</h3>
         <div class="w-full h-48 relative">
@@ -55,6 +61,8 @@
     </div>
 </div>
 
+{{-- TABEL ASET (UPDATED CURRENCY LOGIC) --}}
+{{-- TABEL ASET (UPDATED CURRENCY LOGIC) --}}
 <div class="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
     <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
         <h3 class="font-bold text-gray-700">📊 Aset Saya</h3>
@@ -66,7 +74,7 @@
             <tr class="bg-white text-gray-400 uppercase text-xs tracking-wider border-b border-gray-100">
                 <th class="py-4 px-6 font-medium">Aset</th>
                 <th class="py-4 px-6 text-right font-medium">Jumlah</th>
-                <th class="py-4 px-6 text-right font-medium">Modal</th>
+                <th class="py-4 px-6 text-right font-medium">Modal Avg.</th>
                 <th class="py-4 px-6 text-right font-medium">Nilai Sekarang</th>
                 <th class="py-4 px-6 text-center font-medium">P/L</th>
                 <th class="py-4 px-6 text-center font-medium">Aksi</th>
@@ -74,6 +82,19 @@
         </thead>
         <tbody class="text-gray-600 text-sm">
             @forelse($detail_aset as $item)
+
+            {{-- 🔥 LOGIKA MATA UANG DISINI 🔥 --}}
+            @php
+            // Cek tipe aset
+            $isCrypto = isset($item['type']) && $item['type'] == 'Crypto';
+
+            // Tentukan Simbol & Format Angka
+            $currency = $isCrypto ? '$' : 'Rp';
+            $decimal = $isCrypto ? 2 : 0; // Crypto pakai 2 desimal, IDR 0
+            $dec_point = $isCrypto ? '.' : ',';
+            $thousands_sep = $isCrypto ? ',' : '.';
+            @endphp
+
             <tr class="hover:bg-gray-50 transition border-b border-gray-100 last:border-0">
                 <td class="py-4 px-6">
                     <div class="flex items-center gap-3">
@@ -84,25 +105,60 @@
                         <div>
                             <span class="font-bold text-gray-800 block">{{ $item['aset'] }}</span>
                             <span class="text-xs text-gray-400">{{ $item['nama_lengkap'] }}</span>
+                            {{-- Label Tipe Aset --}}
+                            @if($isCrypto)
+                            <span class="text-[10px] bg-orange-100 text-orange-600 px-1 rounded font-bold">USD</span>
+                            @else
+                            <span class="text-[10px] bg-blue-100 text-blue-600 px-1 rounded font-bold">IDR</span>
+                            @endif
                         </div>
                     </div>
                 </td>
-                <td class="py-4 px-6 text-right font-mono">{{ number_format($item['jumlah'], 4) }}</td>
-                <td class="py-4 px-6 text-right text-gray-400">Rp {{ number_format($item['modal'], 0, ',', '.') }}</td>
-                <td class="py-4 px-6 text-right font-bold text-gray-800">Rp
-                    {{ number_format($item['nilai_sekarang'], 0, ',', '.') }}</td>
 
+                {{-- Jumlah Unit --}}
+                <td class="py-4 px-6 text-right font-mono">{{ number_format($item['jumlah'], 4) }}</td>
+
+                {{-- Modal --}}
+                <td class="py-4 px-6 text-right text-gray-400">
+                    {{ $currency }} {{ number_format($item['modal'], $decimal, $dec_point, $thousands_sep) }}
+                </td>
+
+                {{-- Nilai Sekarang --}}
+                <td class="py-4 px-6 text-right font-bold text-gray-800">
+                    <div>
+                        {{ $currency }}
+                        {{ number_format($item['nilai_sekarang'], $decimal, $dec_point, $thousands_sep) }}
+                    </div>
+                    {{-- Tampilkan estimasi IDR jika asetnya Crypto --}}
+                    @if($isCrypto)
+                    <div class="text-[10px] text-gray-400 font-normal">
+                        ≈ Rp {{ number_format($item['nilai_idr'], 0, ',', '.') }}
+                    </div>
+                    @endif
+                </td>
+
+                {{-- Profit Loss --}}
                 <td class="py-4 px-6 text-center">
+                    @php
+                    // Hindari pembagian nol
+                    $persentase = ($item['modal'] > 0) ? ($item['cuan'] / $item['modal']) * 100 : 0;
+                    @endphp
+
                     @if($item['cuan'] >= 0)
                     <span class="bg-green-100 text-green-700 py-1 px-3 rounded-full text-xs font-bold">
-                        +{{ number_format(($item['cuan'] / ($item['modal'] ?: 1)) * 100, 1) }}%
+                        +{{ number_format($persentase, 1) }}%
                     </span>
+                    <div class="text-xs text-green-600 mt-1 font-bold">
+                        +{{ $currency }} {{ number_format($item['cuan'], $decimal, $dec_point, $thousands_sep) }}
+                    </div>
                     @else
                     <span class="bg-red-100 text-red-700 py-1 px-3 rounded-full text-xs font-bold">
-                        {{ number_format(($item['cuan'] / ($item['modal'] ?: 1)) * 100, 1) }}%
+                        {{ number_format($persentase, 1) }}%
                     </span>
+                    <div class="text-xs text-red-600 mt-1 font-bold">
+                        {{ $currency }} {{ number_format($item['cuan'], $decimal, $dec_point, $thousands_sep) }}
+                    </div>
                     @endif
-                    <div class="text-xs text-gray-400 mt-1">Rp {{ number_format($item['cuan'], 0, ',', '.') }}</div>
                 </td>
 
                 <td class="py-4 px-6 text-center">
@@ -124,10 +180,10 @@
         </tbody>
     </table>
 </div>
-
 @endsection
 
 @section('scripts')
+{{-- Script Chart tidak perlu diubah --}}
 <script>
 const ctx = document.getElementById('myChart');
 const labels = @json($chartLabels ?? []);
@@ -151,9 +207,9 @@ if (labels.length > 0) {
             plugins: {
                 legend: {
                     display: false
-                } // Sembunyikan legend biar bersih
+                }
             },
-            cutout: '70%' // Biar bolong tengahnya besar (Donut Style)
+            cutout: '70%'
         }
     });
 }

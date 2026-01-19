@@ -6,7 +6,7 @@
 <div class="min-h-screen bg-slate-50 py-12">
     <div class="max-w-xl mx-auto px-4">
 
-        {{-- Header Simpel --}}
+        {{-- Header --}}
         <div class="mb-8 text-center">
             <div
                 class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
@@ -35,8 +35,7 @@
                             required>
                             <option value="" disabled selected>-- Pilih Dompet --</option>
                             @foreach($wallets as $wallet)
-                            <option value="{{ $wallet->id }}" data-currency="{{ $wallet->currency }}"
-                                data-flag="{{ $wallet->currency == 'USD' ? 'us' : 'id' }}">
+                            <option value="{{ $wallet->id }}" data-currency="{{ $wallet->currency }}">
                                 {{ $wallet->bank_name }} - {{ $wallet->account_name }} ({{ $wallet->currency }})
                             </option>
                             @endforeach
@@ -50,25 +49,36 @@
                 <div x-data="{ amount: '' }">
                     <label class="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">Jumlah
                         Penambahan</label>
-
                     <div class="relative mb-4">
                         <span id="currencySymbol" class="absolute left-4 top-4 text-slate-400 font-bold">Rp</span>
-
-                        {{-- Input Amount --}}
                         <input type="number" step="any" name="amount" x-model="amount"
                             class="w-full pl-12 pr-4 py-4 text-3xl font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition placeholder-slate-300"
                             placeholder="0" required>
                     </div>
 
-                    {{-- Preset Tombol (Hanya untuk IDR) --}}
+                    {{-- Preset Tombol (IDR) --}}
                     <div id="idrPresets" class="grid grid-cols-3 gap-2 hidden">
                         <button type="button" @click="amount = 100000"
-                            class="py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition">+100rb</button>
+                            class="py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs hover:bg-indigo-50 hover:text-indigo-600 transition">+100rb</button>
                         <button type="button" @click="amount = 500000"
-                            class="py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition">+500rb</button>
+                            class="py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs hover:bg-indigo-50 hover:text-indigo-600 transition">+500rb</button>
                         <button type="button" @click="amount = 1000000"
-                            class="py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition">+1
+                            class="py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 font-bold text-xs hover:bg-indigo-50 hover:text-indigo-600 transition">+1
                             Juta</button>
+                    </div>
+                </div>
+
+                {{-- 3. TANGGAL TRANSAKSI (BARU) --}}
+                <div class="pt-2">
+                    <label
+                        class="flex items-center gap-2 text-slate-400 text-xs font-bold cursor-pointer w-fit hover:text-indigo-500 transition"
+                        onclick="document.getElementById('dateContainer').classList.toggle('hidden')">
+                        <i class="fas fa-calendar-alt"></i> Atur Tanggal Transaksi (Backdate)
+                    </label>
+                    <div id="dateContainer" class="hidden mt-2">
+                        <input type="datetime-local" name="custom_date"
+                            class="w-full bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-xl p-3 focus:ring-indigo-500 focus:border-indigo-500">
+                        <p class="text-[10px] text-slate-400 mt-1">*Biarkan kosong untuk menggunakan waktu sekarang.</p>
                     </div>
                 </div>
 
@@ -83,13 +93,9 @@
             </form>
         </div>
 
-        {{-- Footer Note --}}
-        <p class="text-center text-slate-400 text-xs mt-6">
-            Saldo akan langsung ditambahkan ke portofolio Anda.
-        </p>
+        <p class="text-center text-slate-400 text-xs mt-6">Saldo akan langsung ditambahkan ke portofolio Anda.</p>
     </div>
 </div>
-
 @endsection
 
 @section('scripts')
@@ -98,15 +104,10 @@ const walletSelect = document.getElementById('walletSelect');
 const currencySymbol = document.getElementById('currencySymbol');
 const idrPresets = document.getElementById('idrPresets');
 
-// LOGIC GANTI MATA UANG (Hanya untuk ubah Rp/$ dan Preset)
 walletSelect.addEventListener('change', function() {
     const selectedOption = this.options[this.selectedIndex];
     const currency = selectedOption.getAttribute('data-currency');
-
-    // 1. Ubah Simbol Input
     currencySymbol.innerText = (currency === 'USD') ? '$' : 'Rp';
-
-    // 2. Tampilkan Preset cuma kalau IDR
     if (currency === 'IDR') {
         idrPresets.classList.remove('hidden');
     } else {

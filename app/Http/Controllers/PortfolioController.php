@@ -3,57 +3,81 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\Portfolio;
 use App\Models\Asset;
+use App\Models\Wallet;
+use App\Models\ExchangeRate; // Pastikan model ini ada
+use Illuminate\Support\Facades\Auth;
 
 class PortfolioController extends Controller
 {
     public function index()
     {
-        $userId = Auth::id();
+        $user = Auth::user();
         
-        // 1. Ambil Data Portofolio + Data Asetnya (Harga Sekarang)
-        $items = Portfolio::where('user_id', $userId)
-                          ->where('quantity', '>', 0) // Cuma ambil yang masih punya saldo
-                          ->get();
+        // 1. Ambil Kurs USD ke IDR Terbaru
+        $usdRate = ExchangeRate::where('from_currency', 'USD')->value('rate') ?? 15500;
 
-        // 2. Siapkan Variabel Rekap
+        // 2. Ambil Portfolio dengan Relasi Asset
+        $portfolios = Portfolio::with('asset')
+            ->where('user_id', $user->id)
+            ->where('quantity', '>', 0)
+            ->get();
+
+        $portfolioList = [];
         $totalModal = 0;
         $totalNilaiSekarang = 0;
-        $portfolioList = [];
+        $chartLabels = [];
+        $chartValues = [];
 
-        // 3. Loop untuk hitung satu-satu
-        foreach ($items as $item) {
-            // Ambil harga pasar terbaru dari tabel Assets
-            $asset = Asset::where('symbol', $item->asset_symbol)->first();
-            $currentPrice = $asset ? $asset->current_price : 0;
+        foreach ($portfolios as $porto) {
+            $asset = $porto->asset;
+            
+            // Tentukan Harga Beli & Harga Pasar
+            $avgPrice = $porto->average_buy_price; 
+            $currentPrice = $asset->current_price;
+            
+            $modalAwal = $porto->quantity * $avgPrice;
+            $nilaiSekarang = $porto->quantity * $currentPrice;
 
-            // Hitung nilai
-            $modalAset = $item->quantity * $item->average_buy_price;
-            $nilaiAset = $item->quantity * $currentPrice;
-            $cuanRp = $nilaiAset - $modalAset;
-            $cuanPersen = ($modalAset > 0) ? ($cuanRp / $modalAset) * 100 : 0;
+            // --- LOGIKA KONVERSI KE IDR (Untuk Rekap Total) ---
+            $modalAwalIDR = $modalAwal;
+            $nilaiSekarangIDR = $nilaiSekarang;
 
-            // Masukkan ke rekap total
-            $totalModal += $modalAset;
-            $totalNilaiSekarang += $nilaiAset;
+            if ($asset->type == 'Crypto') {
+                $modalAwalIDR = $modalAwal * $usdRate;
+                $nilaiSekarangIDR = $nilaiSekarang * $usdRate;
+            }
 
-            // Masukkan ke list untuk tabel
+            // Hitung Profit/Loss
+            $profitLossRp = $nilaiSekarang - $modalAwal;
+            $profitLossPct = ($modalAwal > 0) ? ($profitLossRp / $modalAwal) * 100 : 0;
+
+            // Simpan Data Bersih ke Array
             $portfolioList[] = (object) [
-                'symbol' => $item->asset_symbol,
-                'name' => $asset->name ?? 'Unknown',
-                'type' => $asset->type ?? 'stock',
-                'quantity' => $item->quantity,
-                'avg_price' => $item->average_buy_price,
+                'symbol' => $asset->symbol,
+                'name' => $asset->name,
+                'type' => $asset->type, // <--- PENTING: Kirim Tipe Aset
+                'quantity' => $porto->quantity,
+                'avg_price' => $avgPrice,
                 'current_price' => $currentPrice,
-                'current_value' => $nilaiAset,
-                'profit_loss_rp' => $cuanRp,
-                'profit_loss_pct' => $cuanPersen
+                'current_value' => $nilaiSekarang, // Nilai asli (USD/IDR)
+                'current_value_idr' => $nilaiSekarangIDR, // Nilai konversi (IDR)
+                'profit_loss_rp' => $profitLossRp,
+                'profit_loss_pct' => $profitLossPct,
             ];
+
+            // Akumulasi Total (Semua dalam IDR)
+            $totalModal += $modalAwalIDR;
+            $totalNilaiSekarang += $nilaiSekarangIDR;
+
+            // Data Chart (Hanya ambil yang signifikan)
+            if ($nilaiSekarangIDR > 0) {
+                $chartLabels[] = $asset->symbol;
+                $chartValues[] = $nilaiSekarangIDR;
+            }
         }
 
-        // Hitung Total Profit Global
         $totalProfitRp = $totalNilaiSekarang - $totalModal;
         $totalProfitPct = ($totalModal > 0) ? ($totalProfitRp / $totalModal) * 100 : 0;
 
@@ -62,7 +86,10 @@ class PortfolioController extends Controller
             'totalModal', 
             'totalNilaiSekarang', 
             'totalProfitRp', 
-            'totalProfitPct'
+            'totalProfitPct',
+            'chartLabels',
+            'chartValues',
+            'usdRate' // Kirim rate jika view butuh
         ));
     }
 }

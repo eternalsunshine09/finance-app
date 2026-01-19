@@ -5,17 +5,17 @@
 
 @section('content')
 
+{{-- KARTU RINGKASAN (Sudah Dikonversi ke IDR di Controller) --}}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Modal Dikeluarkan</span>
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Modal (Est. IDR)</span>
         <div class="text-2xl font-bold text-gray-800 mt-1">
             Rp {{ number_format($totalModal, 0, ',', '.') }}
         </div>
     </div>
 
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Nilai Aset Sekarang</span>
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Nilai Aset (Est. IDR)</span>
         <div class="text-2xl font-bold text-blue-600 mt-1">
             Rp {{ number_format($totalNilaiSekarang, 0, ',', '.') }}
         </div>
@@ -25,7 +25,7 @@
         class="p-6 rounded-xl shadow-sm border border-gray-100 {{ $totalProfitRp >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200' }}">
         <span
             class="text-xs font-bold {{ $totalProfitRp >= 0 ? 'text-green-600' : 'text-red-600' }} uppercase tracking-wider">
-            Keuntungan / Kerugian Total
+            Total P/L (Est. IDR)
         </span>
         <div class="flex items-center gap-2 mt-1">
             <span class="text-2xl font-black {{ $totalProfitRp >= 0 ? 'text-green-700' : 'text-red-700' }}">
@@ -39,6 +39,7 @@
     </div>
 </div>
 
+{{-- DETAIL TABEL --}}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -60,34 +61,62 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 text-sm">
                     @forelse($portfolioList as $item)
+
+                    {{-- 🔥 LOGIKA TAMPILAN MATA UANG 🔥 --}}
+                    @php
+                    // Gunakan $item->type langsung (bukan $item->asset->type)
+                    $isCrypto = $item->type == 'Crypto';
+
+                    $currency = $isCrypto ? '$' : 'Rp';
+                    $decimal = $isCrypto ? 2 : 0;
+                    $decPoint = $isCrypto ? '.' : ',';
+                    $thouSep = $isCrypto ? ',' : '.';
+                    @endphp
+
                     <tr class="hover:bg-gray-50 transition">
                         <td class="p-4">
-                            <div class="font-bold text-gray-800">{{ $item->symbol }}</div>
+                            <div class="font-bold text-gray-800 flex items-center gap-2">
+                                {{ $item->symbol }}
+                                @if($isCrypto) <span
+                                    class="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">USD</span> @endif
+                            </div>
                             <div class="text-xs text-gray-400">{{ $item->name }}</div>
                             <div class="text-xs text-indigo-500 mt-1 font-mono">{{ number_format($item->quantity, 4) }}
                                 Unit</div>
                         </td>
 
+                        {{-- Harga Beli Rata-rata --}}
                         <td class="p-4 text-right text-gray-500">
-                            Rp {{ number_format($item->avg_price, 0, ',', '.') }}
+                            {{ $currency }} {{ number_format($item->avg_price, $decimal, $decPoint, $thouSep) }}
                         </td>
 
+                        {{-- Harga Pasar Saat Ini --}}
                         <td class="p-4 text-right font-medium">
-                            Rp {{ number_format($item->current_price, 0, ',', '.') }}
+                            {{ $currency }} {{ number_format($item->current_price, $decimal, $decPoint, $thouSep) }}
                         </td>
 
+                        {{-- Nilai Total Aset (Asli) --}}
                         <td class="p-4 text-right font-bold text-gray-800">
-                            Rp {{ number_format($item->current_value, 0, ',', '.') }}
+                            {{ $currency }} {{ number_format($item->current_value, $decimal, $decPoint, $thouSep) }}
+                            @if($isCrypto)
+                            <div class="text-[10px] text-gray-400 font-normal">
+                                ≈ Rp {{ number_format($item->current_value_idr, 0, ',', '.') }}
+                            </div>
+                            @endif
                         </td>
 
                         <td class="p-4 text-center">
                             @if($item->profit_loss_rp >= 0)
                             <div class="text-green-600 font-bold">+{{ number_format($item->profit_loss_pct, 2) }}%</div>
-                            <div class="text-xs text-green-500">+Rp
-                                {{ number_format($item->profit_loss_rp, 0, ',', '.') }}</div>
+                            <div class="text-xs text-green-500">
+                                +{{ $currency }}
+                                {{ number_format($item->profit_loss_rp, $decimal, $decPoint, $thouSep) }}
+                            </div>
                             @else
                             <div class="text-red-600 font-bold">{{ number_format($item->profit_loss_pct, 2) }}%</div>
-                            <div class="text-xs text-red-500">Rp {{ number_format($item->profit_loss_rp, 0, ',', '.') }}
+                            <div class="text-xs text-red-500">
+                                {{ $currency }}
+                                {{ number_format($item->profit_loss_rp, $decimal, $decPoint, $thouSep) }}
                             </div>
                             @endif
                         </td>
@@ -102,12 +131,12 @@
         </div>
     </div>
 
+    {{-- CHART (Menggunakan Nilai IDR agar proporsional) --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 class="font-bold text-gray-700 mb-6 text-center">Alokasi Aset</h3>
+        <h3 class="font-bold text-gray-700 mb-6 text-center">Alokasi Aset (IDR)</h3>
         <div class="h-64 relative">
             <canvas id="portfolioChart"></canvas>
         </div>
-
         <div class="mt-6 space-y-2">
             @foreach($portfolioList as $index => $item)
             <div class="flex justify-between text-sm">
@@ -116,25 +145,25 @@
                         style="background-color: {{ ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6'][$index % 5] }}"></span>
                     {{ $item->symbol }}
                 </span>
+                {{-- Persentase berdasarkan nilai IDR --}}
                 <span
-                    class="font-bold">{{ number_format(($item->current_value / ($totalNilaiSekarang ?: 1)) * 100, 1) }}%</span>
+                    class="font-bold">{{ number_format(($item->current_value_idr / ($totalNilaiSekarang ?: 1)) * 100, 1) }}%</span>
             </div>
             @endforeach
         </div>
     </div>
 
 </div>
-
 @endsection
 
 @section('scripts')
 <script>
-// Data dari Controller
+// Data Chart menggunakan IDR Value agar donatnya akurat
 const labels = {
     !!json_encode(array_column($portfolioList, 'symbol')) !!
 };
 const values = {
-    !!json_encode(array_column($portfolioList, 'current_value')) !!
+    !!json_encode(array_column($portfolioList, 'current_value_idr')) !!
 };
 
 const ctx = document.getElementById('portfolioChart');
@@ -157,7 +186,7 @@ if (labels.length > 0) {
             plugins: {
                 legend: {
                     display: false
-                } // Kita sudah buat legend manual di bawah
+                }
             },
             cutout: '65%'
         }

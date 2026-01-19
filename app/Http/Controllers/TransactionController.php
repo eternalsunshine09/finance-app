@@ -105,10 +105,16 @@ class TransactionController extends Controller
                 'type' => 'BUY',
                 'status' => 'approved',
                 'asset_symbol' => $request->asset_symbol,
-                'amount' => $request->amount, // Di tabel Transaction tetap 'amount' (sesuai migrasi awal)
+                'amount' => $request->amount, 
                 'price_per_unit' => $request->buy_price,
                 'amount_cash' => -$totalCost,
                 'description' => "Beli " . $request->asset_symbol,
+                
+                // 🔥 ADD THIS LINE HERE:
+                'date' => $request->custom_date ?? now(), 
+                
+                // You had 'created_at' mapped to custom_date, which is fine, 
+                // but the database strictly requires a 'date' column too.
                 'created_at' => $request->custom_date ?? now(),
             ]);
         });
@@ -214,7 +220,8 @@ class TransactionController extends Controller
                 'wallet_id'     => $wallet->id,
                 'type'          => 'TOPUP',
                 'amount_cash'   => $request->amount,
-                'date'          => now(),
+                'created_at' => $request->custom_date ?? now(),
+                'date'       => $request->custom_date ?? now(), // Jika ada kolom date
                 'status'        => 'approved', // ✅ Langsung Sukses
                 'description'   => 'Setor Tunai / Top Up Manual',
                 'payment_proof' => $proofPath 
@@ -256,7 +263,8 @@ class TransactionController extends Controller
                 'wallet_id' => $wallet->id,
                 'type' => 'WITHDRAW',
                 'amount_cash' => -$request->amount,
-                'date' => now(),
+                'created_at' => $request->custom_date ?? now(),
+                'date'       => $request->custom_date ?? now(), // Jika ada kolom date
                 'status' => 'pending' 
             ]);
 
