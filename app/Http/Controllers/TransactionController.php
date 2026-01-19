@@ -161,7 +161,7 @@ class TransactionController extends Controller
                 'wallet_id' => $wallet->id,
                 'type' => 'SELL',
                 'asset_symbol' => $request->asset_symbol,
-                'amount_cash' => $totalRevenue,
+                'amount' => -$request->quantity, // Sesuaikan nama kolom dengan database (amount)
                 'amount_asset' => -$request->quantity,
                 'price_per_unit' => $request->price_per_unit,
                 'date' => now(),
@@ -220,9 +220,15 @@ class TransactionController extends Controller
                 'wallet_id'     => $wallet->id,
                 'type'          => 'TOPUP',
                 'amount_cash'   => $request->amount,
-                'created_at' => $request->custom_date ?? now(),
-                'date'       => $request->custom_date ?? now(), // Jika ada kolom date
-                'status'        => 'approved', // ✅ Langsung Sukses
+                
+                // 🔥 TAMBAHKAN BARIS INI AGAR TIDAK ERROR:
+                'amount'        => 0, // Karena ini uang tunai, jumlah unit asetnya 0
+                'price_per_unit'=> 1, // 🔥 TAMBAHKAN INI (Nilai dummy agar tidak error)
+                'asset_symbol'  => null,
+                
+                'created_at'    => $request->custom_date ?? now(),
+                'date'          => $request->custom_date ?? now(),
+                'status'        => 'approved',
                 'description'   => 'Setor Tunai / Top Up Manual',
                 'payment_proof' => $proofPath 
             ]);
@@ -259,13 +265,18 @@ class TransactionController extends Controller
             }
 
             Transaction::create([
-                'user_id' => $request->user_id,
-                'wallet_id' => $wallet->id,
-                'type' => 'WITHDRAW',
+                'user_id'     => Auth::id(), // Gunakan Auth::id() agar lebih aman
+                'wallet_id'   => $wallet->id,
+                'type'        => 'WITHDRAW',
                 'amount_cash' => -$request->amount,
-                'created_at' => $request->custom_date ?? now(),
-                'date'       => $request->custom_date ?? now(), // Jika ada kolom date
-                'status' => 'pending' 
+                
+                // 🔥 TAMBAHKAN BARIS INI:
+                'amount'      => 0, // Isi 0 karena ini transaksi uang, bukan aset
+                
+                'created_at'  => $request->custom_date ?? now(),
+                'date'        => $request->custom_date ?? now(),
+                'status'      => 'pending',
+                'description' => 'Penarikan Dana ' . $request->currency // Tambahkan deskripsi agar rapi
             ]);
 
             $wallet->decrement('balance', $request->amount);
@@ -287,4 +298,102 @@ class TransactionController extends Controller
 
         return view('transactions.history', compact('transactions'));
     }
+    // Tambahkan di App/Http/Controllers/TransactionController.php
+
+    public function edit($id)
+{
+    $transaction = Transaction::where('id', $id)->where('user_id', Auth::id())->firstOrFail();
+    
+    // 🔥 PERUBAHAN: Hapus pembatasan tipe. Semua tipe sekarang boleh masuk halaman edit.
+    // if (!in_array($transaction->type, ['TOPUP', 'WITHDRAW'])) { ... } <--- HAPUS ATAU KOMENTARI INI
+
+    return view('transactions.edit', compact('transaction'));
+}
+
+public function update(Request $request, $id)
+{
+    $request->validate([
+        'amount_cash' => 'required|numeric|min:1',
+        'date'        => 'required|date',
+        'description' => 'nullable|string'
+    ]);
+
+    DB::transaction(function () use ($request, $id) {
+        $transaction = Transaction::where('id', $id)->where('user_id', Auth::id())->lockForUpdate()->firstOrFail();
+        
+        // Cek apakah ini transaksi Konversi (BUY/SELL selain Topup/Withdraw)
+        $isExchange = in_array($transaction->type, ['BUY', 'SELL']) && $transaction->asset_symbol == null;
+
+        // JIKA BUKAN KONVERSI (TOPUP/WITHDRAW), BOLEH EDIT NOMINAL
+        if (!$isExchange) {
+            $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
+
+            // Hitung Selisih
+            $oldAmount = abs($transaction->amount_cash); 
+            $newAmount = $request->amount_cash;
+            $difference = $newAmount - $oldAmount; 
+
+            // Update Saldo Wallet
+            if ($transaction->type == 'TOPUP') {
+                $wallet->balance += $difference;
+                $finalAmountRecord = $newAmount; 
+            } 
+            elseif ($transaction->type == 'WITHDRAW') {
+                $wallet->balance -= $difference; 
+                $finalAmountRecord = -$newAmount;
+            }
+            // Logic tambahan untuk BUY/SELL Aset (Saham) jika diperlukan nanti
+            else {
+                $finalAmountRecord = $transaction->amount_cash; // Default tidak berubah
+            }
+
+            if ($wallet->balance < 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['amount_cash' => 'Saldo dompet tidak mencukupi untuk perubahan ini.']);
+            }
+
+            $wallet->save();
+            
+            // Update nominal di transaksi
+            $transaction->amount_cash = $finalAmountRecord;
+        }
+        
+        // Update Data Umum (Tanggal & Deskripsi) - Berlaku untuk semua tipe
+        $transaction->date = $request->date;
+        $transaction->created_at = $request->date; // Update created_at juga agar urutan di history berubah
+        $transaction->description = $request->description;
+        
+        $transaction->save();
+    });
+
+    return redirect()->route('history')->with('success', 'Transaksi berhasil diperbarui.');
+}
+
+        public function destroy($id)
+        {
+            DB::transaction(function () use ($id) {
+                $transaction = Transaction::where('id', $id)->where('user_id', Auth::id())->lockForUpdate()->firstOrFail();
+                $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
+
+                // LOGIKA PENGEMBALIAN SALDO:
+                // 1. Jika Hapus "Uang Masuk" (Positif) -> Saldo Wallet akan DIKURANGI.
+                // 2. Jika Hapus "Uang Keluar" (Negatif) -> Saldo Wallet akan DITAMBAH (Refund).
+                // Rumus: Saldo Baru = Saldo Lama - Nominal Transaksi
+                
+                $newBalance = $wallet->balance - $transaction->amount_cash;
+
+                // Cek jika saldo tidak cukup (Misal mau hapus TopUp tapi uangnya udah dipake)
+                if ($newBalance < 0) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'error' => 'Gagal hapus! Saldo dompet tidak cukup untuk membatalkan transaksi ini.'
+                    ]);
+                }
+
+                $wallet->balance = $newBalance;
+                $wallet->save();
+
+                $transaction->delete();
+            });
+
+            return back()->with('success', 'Transaksi berhasil dihapus dan saldo dikembalikan.');
+        }
 }

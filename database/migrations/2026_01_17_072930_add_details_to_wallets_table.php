@@ -9,21 +9,41 @@ return new class extends Migration
     public function up()
     {
         Schema::table('wallets', function (Blueprint $table) {
-            // Nama Bank/Sekuritas (Misal: BCA, Bibit, Ajaib, Binance)
-            $table->string('bank_name')->default('Cash')->after('user_id'); 
+            
+            // 1. Cek Kolom bank_name
+            if (!Schema::hasColumn('wallets', 'bank_name')) {
+                $table->string('bank_name')->default('Cash')->after('user_id');
+            }
 
-            // Nama Akun (Misal: Tabungan Utama, RDN Saham, Dompet Kripto)
-            $table->string('account_name')->default('Main Wallet')->after('bank_name');
+            // 2. Cek Kolom account_name
+            if (!Schema::hasColumn('wallets', 'account_name')) {
+                // Pastikan urutannya benar, taruh setelah bank_name (kalau ada) atau user_id
+                $after = Schema::hasColumn('wallets', 'bank_name') ? 'bank_name' : 'user_id';
+                $table->string('account_name')->default('Main Wallet')->after($after);
+            }
 
-            // Nomor Rekening (Opsional, buat gaya-gayaan)
-            $table->string('account_number')->nullable()->after('account_name');
+            // 3. Cek Kolom account_number
+            if (!Schema::hasColumn('wallets', 'account_number')) {
+                $after = Schema::hasColumn('wallets', 'account_name') ? 'account_name' : 'user_id';
+                $table->string('account_number')->nullable()->after($after);
+            }
+            
         });
     }
 
     public function down()
     {
         Schema::table('wallets', function (Blueprint $table) {
-            $table->dropColumn(['bank_name', 'account_name', 'account_number']);
+            // Hapus kolom hanya jika ada
+            if (Schema::hasColumn('wallets', 'bank_name')) {
+                $table->dropColumn('bank_name');
+            }
+            if (Schema::hasColumn('wallets', 'account_name')) {
+                $table->dropColumn('account_name');
+            }
+            if (Schema::hasColumn('wallets', 'account_number')) {
+                $table->dropColumn('account_number');
+            }
         });
     }
 };

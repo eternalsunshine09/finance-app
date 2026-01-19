@@ -24,7 +24,6 @@
             <div class="text-right">
                 <p class="text-sm text-slate-400 font-bold uppercase">Sisa Saldo</p>
                 <h2 class="text-4xl font-black text-indigo-600">
-                    {{-- 🔥 UPDATE: Ubah 0 jadi 2 --}}
                     {{ $wallet->currency == 'USD' ? '$' : 'Rp' }} {{ number_format($wallet->balance, 2, ',', '.') }}
                 </h2>
             </div>
@@ -45,11 +44,12 @@
                             <th class="px-6 py-4">Tipe</th>
                             <th class="px-6 py-4">Keterangan</th>
                             <th class="px-6 py-4 text-right">Nominal</th>
+                            <th class="px-6 py-4 text-center">Aksi</th> {{-- KOLOM BARU --}}
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-sm">
                         @forelse($transactions as $trx)
-                        <tr class="hover:bg-slate-50 transition">
+                        <tr class="hover:bg-slate-50 transition group">
                             <td class="px-6 py-4 text-slate-500">
                                 {{ $trx->created_at->format('d M Y H:i') }}
                             </td>
@@ -67,14 +67,56 @@
                             </td>
                             <td
                                 class="px-6 py-4 text-right font-bold {{ $trx->amount_cash >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
-                                {{-- 🔥 UPDATE: Ubah 0 jadi 2 --}}
                                 {{ $wallet->currency == 'USD' ? '$' : 'Rp' }}
                                 {{ number_format(abs($trx->amount_cash), 2, ',', '.') }}
+                            </td>
+
+                            {{-- TOMBOL AKSI (BARU) --}}
+                            {{-- TOMBOL AKSI (REVISI: SELALU TERLIHAT JELAS) --}}
+                            <td class="px-6 py-4 text-center">
+                                <div class="flex justify-center gap-3"> {{-- Hapus opacity --}}
+
+                                    @if(in_array($trx->type, ['TOPUP', 'WITHDRAW']))
+                                    {{-- Edit --}}
+                                    <a href="{{ route('transactions.edit', $trx->id) }}"
+                                        class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white transition border border-amber-200"
+                                        title="Edit">
+                                        <i class="fas fa-pencil-alt text-sm"></i>
+                                    </a>
+
+                                    {{-- Hapus --}}
+                                    <form action="{{ route('transactions.destroy', $trx->id) }}" method="POST"
+                                        onsubmit="return confirm('Yakin ingin menghapus? Saldo akan dikembalikan.');">
+                                        @csrf @method('DELETE')
+                                        <button type="submit"
+                                            class="flex items-center justify-center w-8 h-8 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-500 hover:text-white transition border border-rose-200"
+                                            title="Hapus">
+                                            <i class="fas fa-trash-alt text-sm"></i>
+                                        </button>
+                                    </form>
+                                    @else
+                                    {{-- Gembok --}}
+                                    <div
+                                        class="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200">
+                                        <i class="fas fa-lock text-sm"></i>
+                                    </div>
+
+                                    {{-- Hapus (Tetap dimunculkan) --}}
+                                    <form action="{{ route('transactions.destroy', $trx->id) }}" method="POST"
+                                        onsubmit="return confirm('Yakin ingin menghapus?');">
+                                        @csrf @method('DELETE')
+                                        <button type="submit"
+                                            class="flex items-center justify-center w-8 h-8 rounded-lg bg-rose-100 text-rose-600 hover:bg-rose-500 hover:text-white transition border border-rose-200">
+                                            <i class="fas fa-trash-alt text-sm"></i>
+                                        </button>
+                                    </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-slate-400">
+                            <td colspan="5" class="px-6 py-12 text-center text-slate-400">
                                 Belum ada transaksi pada dompet ini.
                             </td>
                         </tr>
