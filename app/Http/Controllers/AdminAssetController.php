@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Asset;
 use App\Models\ExchangeRate;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Http; // Pastikan ini ada!
 
 class AdminAssetController extends Controller
 {
@@ -23,19 +23,19 @@ class AdminAssetController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'symbol' => 'required|unique:assets,symbol',
-            'name' => 'required',
-            'type' => 'required',
+            'symbol'        => 'required|unique:assets,symbol',
+            'name'          => 'required',
+            'type'          => 'required',
             'current_price' => 'required|numeric',
-            // Subtype opsional, tapi kalau mau strict bisa dikasih logic tambahan
+            'api_id'        => 'nullable|string',
         ]);
 
         Asset::create([
-            'symbol' => strtoupper($request->symbol),
-            'name' => $request->name,
-            'type' => $request->type,
-            'subtype' => $request->subtype, // <--- Simpan subtype
-            'api_id' => $request->api_id,
+            'symbol'        => strtoupper($request->symbol),
+            'name'          => $request->name,
+            'type'          => $request->type,
+            'subtype'       => $request->subtype,
+            'api_id'        => $request->api_id,
             'current_price' => $request->current_price,
         ]);
 
@@ -55,7 +55,7 @@ class AdminAssetController extends Controller
         return back()->with('success', 'Aset berhasil dihapus.');
     }
     
-    // 1. UPDATE KURS MANUAL
+    // --- 1. UPDATE KURS MANUAL ---
     public function updateRate(Request $request)
     {
         $request->validate([
@@ -64,90 +64,86 @@ class AdminAssetController extends Controller
 
         ExchangeRate::create([
             'from_currency' => 'USD',
-            'to_currency' => 'IDR',
-            'rate' => $request->rate,
-            'date' => now(),
+            'to_currency'   => 'IDR',
+            'rate'          => $request->rate,
+            'date'          => now(),
         ]);
 
         return back()->with('success', 'Kurs USD berhasil diupdate manual menjadi Rp ' . number_format($request->rate));
     }
 
-    // 2. SYNC HARGA ASET (Crypto -> USD, Saham -> IDR)
-    // GANTI method sync() dengan kode ini:
-    public function sync()
+    // --- 2. SYNC HARGA ASET (HYBRID: COINGECKO + YAHOO) ---
+    // Nama method ini HARUS 'syncPrices' agar cocok dengan routes/web.php
+    public function syncPrices()
     {
-        try {
-            // Ambil semua aset yang punya API ID
-            $assets = Asset::whereNotNull('api_id')->where('api_id', '!=', '')->get();
-            $updatedCount = 0;
+        // Ambil semua aset yang punya API ID
+        $assets = Asset::whereNotNull('api_id')->where('api_id', '!=', '')->get();
+        
+        if ($assets->isEmpty()) {
+            return back()->with('error', 'Tidak ada aset dengan API ID.');
+        }
 
-            foreach ($assets as $asset) {
-                // 🔥 LOGIKA PINTAR:
-                // Jika tipe Crypto -> Ambil harga USD
-                // Jika tipe Stock  -> Ambil harga IDR
-                $currency = ($asset->type == 'Crypto') ? 'usd' : 'idr';
+        $successCount = 0;
+        $failCount = 0;
 
-                // Panggil API CoinGecko sesuai mata uang
-                $url = "https://api.coingecko.com/api/v3/simple/price?ids={$asset->api_id}&vs_currencies={$currency}";
-                $response = Http::get($url);
+        foreach ($assets as $asset) {
+            try {
+                $price = null;
 
-                if ($response->successful()) {
-                    $data = $response->json();
+                // --- OPSI A: JIKA CRYPTO (Gunakan CoinGecko) ---
+                if ($asset->type == 'Crypto') {
+                    // API ID CoinGecko harus lowercase (misal: bitcoin, ethereum, tether)
+                    $apiId = strtolower($asset->api_id); 
+                    $url = "https://api.coingecko.com/api/v3/simple/price?ids={$apiId}&vs_currencies=usd";
                     
-                    // Cek apakah data ada
-                    if (isset($data[$asset->api_id][$currency])) {
-                        $price = $data[$asset->api_id][$currency];
+                    $response = Http::get($url);
+                    
+                    if ($response->successful()) {
+                        $data = $response->json();
+                        if (isset($data[$apiId]['usd'])) {
+                            $price = $data[$apiId]['usd'];
+                        }
+                    }
+                } 
+                
+                // --- OPSI B: JIKA SAHAM/STOCK (Gunakan Yahoo Finance) ---
+                // CoinGecko jelek untuk saham, jadi kita alihkan ke Yahoo
+                else {
+                    $yahooSymbol = $asset->api_id;
+                    
+                    // Otomatis tambahkan .JK jika Saham Indo dan belum ada ekstensinya
+                    if ($asset->type == 'Stock' && !str_contains($yahooSymbol, '.') && strlen($yahooSymbol) == 4) {
+                        $yahooSymbol .= '.JK'; 
+                    }
 
-                        // Simpan ke database
-                        // Bitcoin akan tersimpan misal: 96000 (bukan 1,6 Miliar lagi)
-                        $asset->update(['current_price' => $price]);
-                        $updatedCount++;
+                    $url = "https://query1.finance.yahoo.com/v8/finance/chart/{$yahooSymbol}";
+                    $response = Http::get($url);
+
+                    if ($response->successful()) {
+                        $meta = $response->json()['chart']['result'][0]['meta'] ?? null;
+                        if ($meta && isset($meta['regularMarketPrice'])) {
+                            $price = $meta['regularMarketPrice'];
+                        }
                     }
                 }
-            }
 
-            return back()->with('success', "Berhasil update harga $updatedCount aset! (Crypto dalam USD, Saham dalam IDR)");
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Gagal koneksi API: ' . $e->getMessage());
-        }
-    }
-
-    // 2. UPDATE KURS OTOMATIS (Pakai API)
-    public function syncRateAPI()
-    {
-        try {
-            $assets = Asset::whereNotNull('api_id')->get(); // Ambil aset yang punya API ID saja
-            $updatedCount = 0;
-
-            foreach ($assets as $asset) {
-                // 🔥 LOGIKA MATA UANG:
-                // Jika Crypto => Request harga dalam 'usd'
-                // Jika Stock/Lainnya => Request harga dalam 'idr'
-                $currency = ($asset->type == 'Crypto') ? 'usd' : 'idr';
-
-                // Panggil API CoinGecko
-                $url = "https://api.coingecko.com/api/v3/simple/price?ids={$asset->api_id}&vs_currencies={$currency}";
-                $response = Http::get($url);
-
-                if ($response->successful()) {
-                    $data = $response->json();
-                    
-                    // Cek apakah data tersedia di response
-                    if (isset($data[$asset->api_id][$currency])) {
-                        $price = $data[$asset->api_id][$currency];
-
-                        // Update harga di database
-                        $asset->update(['current_price' => $price]);
-                        $updatedCount++;
-                    }
+                // --- SIMPAN JIKA HARGA DITEMUKAN ---
+                if ($price) {
+                    $asset->update([
+                        'current_price' => $price,
+                        'updated_at' => now()
+                    ]);
+                    $successCount++;
+                } else {
+                    $failCount++;
                 }
+
+            } catch (\Exception $e) {
+                $failCount++;
+                continue; // Lanjut ke aset berikutnya jika error
             }
-
-            return back()->with('success', "Berhasil sinkronisasi harga $updatedCount aset (Crypto: USD, Saham: IDR)!");
-
-        } catch (\Exception $e) {
-            return back()->with('error', 'Gagal koneksi ke API CoinGecko: ' . $e->getMessage());
         }
+
+        return back()->with('success', "Sync Selesai! Berhasil: $successCount, Gagal: $failCount");
     }
 }

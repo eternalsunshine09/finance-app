@@ -140,6 +140,7 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/assets', [AdminAssetController::class, 'store'])->name('assets.store');
     Route::patch('/assets/{id}/price', [AdminAssetController::class, 'updatePrice'])->name('assets.updatePrice');
     Route::post('/assets/sync', [AdminAssetController::class, 'syncPrices'])->name('assets.sync'); // Sync Prices
+    Route::post('/admin/assets/sync', [AdminAssetController::class, 'syncPrices'])->name('admin.assets.sync');
     Route::delete('/assets/{id}', [AdminAssetController::class, 'destroy'])->name('assets.destroy');
 
     // Fitur Kelola Kurs (Exchange Rate)

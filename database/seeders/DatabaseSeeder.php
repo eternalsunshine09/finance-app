@@ -13,26 +13,21 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Buat Akun ADMIN
-        // Pakai updateOrCreate biar kalau di-seed 2x tidak error duplikat
-        User::updateOrCreate(
-            ['email' => 'admin@finance.com'],
-            [
-                'name' => 'Administrator',
-                'password' => Hash::make('password'), // Pass: password
-                'role' => 'admin',
-            ]
-        );
+        // 1. Buat Akun Admin
+        User::create([
+            'name' => 'Administrator',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+        ]);
 
-        // 2. Buat Akun USER BIASA (Budi)
-        $user = User::updateOrCreate(
-            ['email' => 'budi@finance.com'],
-            [
-                'name' => 'Budi Investor',
-                'password' => Hash::make('password'), // Pass: password
-                'role' => 'user',
-            ]
-        );
+        // 2. Buat Akun User Biasa (Opsional, untuk tes)
+        $user = User::create([
+            'name' => 'Investor User',
+            'email' => 'user@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'user',
+        ]);
 
         // 3. Beri Budi Modal Awal (Dompet)
         // UPDATE: Menambahkan bank_name, account_name, account_number

@@ -29,98 +29,82 @@ class TransactionController extends Controller
     }
 
     public function processBuy(Request $request)
-    {
-        $request->validate([
-            'wallet_id'    => 'required|exists:wallets,id',
-            'asset_symbol' => 'required|exists:assets,symbol',
-            'buy_price'    => 'required|numeric|min:0',
-            'amount'       => 'required|numeric|min:0.00000001', 
+{
+    $request->validate([
+        'wallet_id' => 'required|exists:wallets,id',
+        'asset_symbol' => 'required|exists:assets,symbol',
+        'amount' => 'required|numeric|min:0.00000001',
+        'buy_price' => 'required|numeric|min:0',
+        'fee' => 'nullable|numeric|min:0', // Validasi input fee manual
+    ]);
+
+    $user = Auth::user();
+    
+    DB::transaction(function () use ($request, $user) {
+        
+        $wallet = Wallet::where('id', $request->wallet_id)
+                        ->where('user_id', $user->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                        
+        $asset = Asset::where('symbol', $request->asset_symbol)->firstOrFail();
+
+        // 1. Ambil Fee dari Input Manual (Default 0 jika kosong)
+        $feeAmount = $request->fee ?? 0;
+        
+        // 2. Hitung Total Biaya
+        $subtotal = $request->amount * $request->buy_price;
+        $totalCost = $subtotal + $feeAmount;
+
+        // 3. Cek Saldo
+        if ($wallet->balance < $totalCost) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'amount' => "Saldo tidak cukup untuk membayar tagihan + fee broker."
+            ]);
+        }
+
+        // 4. Potong Saldo
+        $wallet->decrement('balance', $totalCost);
+
+        // 5. Update/Buat Portfolio
+        $portfolio = Portfolio::firstOrCreate(
+            ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
+            ['quantity' => 0, 'average_buy_price' => 0]
+        );
+
+        // Average Down Logic
+        // Catatan: Fee biasanya TIDAK dimasukkan ke average price aset, 
+        // tapi dicatat sebagai pengeluaran terpisah. 
+        // Jika Anda ingin Fee masuk ke harga modal, ubah:
+        // $newTotalVal = $oldTotalVal + $subtotal + $feeAmount;
+        
+        $oldTotalVal = $portfolio->quantity * $portfolio->average_buy_price;
+        $newTotalVal = $oldTotalVal + $subtotal; // Fee tidak masuk avg price
+        $newQuantity = $portfolio->quantity + $request->amount;
+        $newAvgPrice = $newQuantity > 0 ? $newTotalVal / $newQuantity : 0;
+
+        $portfolio->update([
+            'quantity' => $newQuantity,
+            'average_buy_price' => $newAvgPrice
         ]);
 
-        $user = Auth::user();
-        $totalCost = $request->amount * $request->buy_price;
+        // 6. Catat Transaksi
+        Transaction::create([
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'type' => 'BUY',
+            'status' => 'approved',
+            'asset_symbol' => $request->asset_symbol,
+            'amount' => $request->amount,
+            'price_per_unit' => $request->buy_price,
+            'amount_cash' => -$totalCost, // Cash keluar (termasuk fee)
+            'description' => "Beli " . $request->asset_symbol . " (Fee: " . number_format($feeAmount, 2) . ")",
+            'date' => now(),
+        ]);
+    });
 
-        DB::transaction(function () use ($request, $user, $totalCost) {
-            
-            // 1. Ambil Data Wallet & Aset
-            $wallet = Wallet::where('id', $request->wallet_id)
-                            ->where('user_id', $user->id)
-                            ->lockForUpdate()
-                            ->firstOrFail();
-                            
-            $asset = Asset::where('symbol', $request->asset_symbol)->firstOrFail();
-
-            // Validasi Mata Uang
-            if ($asset->type == 'Crypto' && $wallet->currency != 'USD') {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'wallet_id' => "Aset Crypto ({$asset->symbol}) wajib dibeli pakai Saldo USD."
-                ]);
-            }
-
-            if ($asset->type == 'Stock' && $wallet->currency != 'IDR') {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'wallet_id' => "Saham Indonesia ({$asset->symbol}) wajib dibeli pakai Saldo IDR."
-                ]);
-            }
-
-            // Cek Saldo
-            if ($wallet->balance < $totalCost) {
-                $currencySymbol = ($wallet->currency == 'USD') ? '$' : 'Rp';
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'amount' => "Saldo tidak cukup! Butuh {$currencySymbol} " . number_format($totalCost, 2)
-                ]);
-            }
-
-            // Potong Saldo
-            $wallet->decrement('balance', $totalCost);
-
-            // ---------------------------------------------------------
-            // 🔥 PERBAIKAN DI SINI (Ganti 'amount' jadi 'quantity') 🔥
-            // ---------------------------------------------------------
-            
-            // Cari atau Buat Portfolio Baru
-            $portfolio = Portfolio::firstOrCreate(
-                ['user_id' => $user->id, 'asset_symbol' => $request->asset_symbol],
-                ['quantity' => 0, 'average_buy_price' => 0] // ✅ GANTI nama kolom
-            );
-
-            // Hitung Average Price (Average Down Logic)
-            // Gunakan $portfolio->average_buy_price (sesuai DB)
-            $oldTotalVal = $portfolio->quantity * $portfolio->average_buy_price; 
-            $newTotalVal = $oldTotalVal + $totalCost;
-            $newQuantity = $portfolio->quantity + $request->amount; 
-            
-            $newAvgPrice = $newQuantity > 0 ? $newTotalVal / $newQuantity : 0;
-
-            // Update Database Portfolio
-            $portfolio->update([
-                'quantity' => $newQuantity, 
-                'average_buy_price' => $newAvgPrice // ✅ GANTI nama kolom
-            ]);
-
-            // Catat Transaksi
-            Transaction::create([
-                'user_id' => $user->id,
-                'wallet_id' => $wallet->id,
-                'type' => 'BUY',
-                'status' => 'approved',
-                'asset_symbol' => $request->asset_symbol,
-                'amount' => $request->amount, 
-                'price_per_unit' => $request->buy_price,
-                'amount_cash' => -$totalCost,
-                'description' => "Beli " . $request->asset_symbol,
-                
-                // 🔥 ADD THIS LINE HERE:
-                'date' => $request->custom_date ?? now(), 
-                
-                // You had 'created_at' mapped to custom_date, which is fine, 
-                // but the database strictly requires a 'date' column too.
-                'created_at' => $request->custom_date ?? now(),
-            ]);
-        });
-
-        return redirect()->route('wallet.index')->with('success', 'Pembelian Aset Berhasil!');
-    }
+    return redirect()->route('wallet.index')->with('success', 'Pembelian Aset Berhasil!');
+}
 
     // ===========================
     // 2. API HELPER (PENTING BUAT JS)
