@@ -15,7 +15,11 @@ class AssetController extends Controller
      */
     public function index()
     {
-        $assets = Asset::orderBy('type')->orderBy('symbol')->get();
+        // This returns a Paginator, which HAS the ->links() method
+        $assets = Asset::orderBy('type', 'asc')
+                    ->orderBy('symbol', 'asc')
+                    ->paginate(10); // Change 10 to however many items you want per page
+
         return view('admin.assets.index', compact('assets'));
     }
 
@@ -157,6 +161,8 @@ class AssetController extends Controller
      */
     public function syncAllPrices()
     {
+        $this->syncCryptoPrices();
+        $this->syncAllPrices();
         // Tips: Untuk production, sebaiknya gunakan Job/Queue agar tidak timeout
         $assets = Asset::all();
         $updated = 0;
@@ -193,6 +199,6 @@ class AssetController extends Controller
             }
         }
 
-        return back()->with('success', "Berhasil update {$updated} dari {$assets->count()} aset!");
+        return back()->with('success', 'Semua harga aset berhasil diperbarui!');
     }
 }

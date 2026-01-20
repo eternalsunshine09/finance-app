@@ -6,274 +6,282 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Admin Panel')</title>
     @vite('resources/css/app.css')
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
     <style>
     body {
         font-family: 'Inter', sans-serif;
+        background-color: #f9fafb;
+        /* Abu sangat muda */
+        color: #111827;
+        /* Hitam pekat */
     }
 
-    .no-scrollbar::-webkit-scrollbar {
-        display: none;
+    /* Scrollbar Minimalis */
+    ::-webkit-scrollbar {
+        width: 6px;
     }
 
-    .no-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #9ca3af;
     }
 
     [x-cloak] {
         display: none !important;
     }
-
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
     </style>
 </head>
 
-<body class="bg-gray-50 text-gray-900 antialiased" x-data="{ sidebarOpen: true }">
+<body class="min-h-screen flex flex-col">
 
-    <div class="flex h-screen overflow-hidden">
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
 
-        {{-- Sidebar --}}
-        <aside
-            class="bg-white text-gray-800 flex flex-col fixed h-full transition-all duration-300 ease-in-out z-50 border-r border-gray-200 shadow-lg"
-            :class="sidebarOpen ? 'w-64' : 'w-20'">
-
-            {{-- Sidebar Header --}}
-            <div class="h-16 flex items-center justify-between px-4 border-b border-gray-200 shrink-0">
-                <div class="flex items-center justify-center w-full transition-opacity duration-300"
-                    x-show="sidebarOpen" x-transition:enter="delay-100">
-                    <h1 class="text-lg font-black tracking-wider text-gray-900 whitespace-nowrap">
-                        <span class="text-gray-600">👑</span> AdminPanel
-                    </h1>
+                <div class="flex items-center space-x-3">
+                    <a href="{{ route('admin.dashboard') }}" class="flex items-center space-x-3 no-underline group">
+                        <div
+                            class="w-10 h-10 rounded-lg bg-black flex items-center justify-center group-hover:bg-gray-800 transition-colors shadow-sm">
+                            <span class="text-white font-bold text-lg">A</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <h1 class="text-lg font-bold text-gray-900 leading-tight">AdminPanel</h1>
+                            <span
+                                class="text-[10px] font-semibold text-gray-500 tracking-widest uppercase">Management</span>
+                        </div>
+                    </a>
                 </div>
 
-                <div class="flex items-center justify-center w-full" x-show="!sidebarOpen">
-                    <span class="text-2xl text-gray-600">👑</span>
-                </div>
+                <div class="hidden md:flex items-center space-x-1">
 
-                {{-- Toggle Button --}}
-                <button @click="sidebarOpen = !sidebarOpen"
-                    class="absolute right-[-12px] top-5 bg-gray-800 hover:bg-gray-900 text-white border border-gray-300 shadow-md z-50 rounded-full w-6 h-6 flex items-center justify-center transform transition-transform duration-300"
-                    :class="sidebarOpen ? '' : 'rotate-180'">
-                    <i class="fas fa-chevron-left text-[10px]"></i>
-                </button>
-            </div>
+                    <a href="{{ route('admin.dashboard') }}"
+                        class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
+                        {{ request()->routeIs('admin.dashboard') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
+                        Dashboard
+                    </a>
 
-            {{-- Sidebar Navigation --}}
-            <nav class="flex-1 overflow-y-auto overflow-x-hidden py-4 hover:overflow-y-auto no-scrollbar space-y-6">
-                {{-- Master Data Section --}}
-                <div>
-                    <div class="px-6 py-2 text-[10px] font-bold text-gray-500 uppercase transition-all duration-300 whitespace-nowrap"
-                        :class="sidebarOpen ? 'opacity-100' : 'opacity-0 hidden'">
-                        Master Data
-                    </div>
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open"
+                            class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center space-x-1
+                            {{ request()->routeIs('admin.assets.*') || request()->routeIs('admin.exchange-rates.*') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
+                            <span>Master Data</span>
+                            <svg class="w-4 h-4 transition-transform duration-200" :class="open ? 'rotate-180' : ''"
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
 
-                    <ul class="space-y-1">
-                        <li>
-                            <a href="{{ route('admin.dashboard') }}"
-                                class="relative flex items-center py-3 hover:bg-gray-100 transition-colors duration-200
-                               {{ request()->routeIs('admin.dashboard') ? 'bg-gray-100 text-gray-900' : 'text-gray-600' }}"
-                                :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="Dashboard">
-                                @if(request()->routeIs('admin.dashboard'))
-                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-800 rounded-r"></div>
-                                @endif
-                                <span class="text-lg w-6 text-center transition-all duration-300"
-                                    :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-home"></i></span>
-                                <span class="whitespace-nowrap transition-opacity duration-300 font-medium"
-                                    :class="sidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden w-0'">Dashboard</span>
-                            </a>
-                        </li>
+                        <div x-show="open" @click.away="open = false" x-cloak
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                            class="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-xl z-50 py-1">
 
-                        <li>
                             <a href="{{ route('admin.assets.index') }}"
-                                class="relative flex items-center py-3 hover:bg-gray-100 transition-colors duration-200
-                               {{ request()->routeIs('admin.assets.index') ? 'bg-gray-100 text-gray-900' : 'text-gray-600' }}"
-                                :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="Master Aset">
-                                @if(request()->routeIs('admin.assets.index'))
-                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-800 rounded-r"></div>
-                                @endif
-                                <span class="text-lg w-6 text-center transition-all duration-300"
-                                    :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-coins"></i></span>
-                                <span class="whitespace-nowrap transition-opacity duration-300 font-medium"
-                                    :class="sidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden w-0'">Master
-                                    Aset</span>
+                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                                    </path>
+                                </svg>
+                                Aset Investasi
                             </a>
-                        </li>
-
-                        <li>
                             <a href="{{ route('admin.exchange-rates.index') }}"
-                                class="relative flex items-center py-3 hover:bg-gray-100 transition-colors duration-200
-                               {{ request()->routeIs('admin.exchange-rates.index') ? 'bg-gray-100 text-gray-900' : 'text-gray-600' }}"
-                                :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="Kelola Valas">
-                                @if(request()->routeIs('admin.exchange-rates.index'))
-                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-800 rounded-r"></div>
-                                @endif
-                                <span class="text-lg w-6 text-center transition-all duration-300"
-                                    :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-globe"></i></span>
-                                <span class="whitespace-nowrap transition-opacity duration-300 font-medium"
-                                    :class="sidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden w-0'">Kelola
-                                    Valas</span>
+                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                                    </path>
+                                </svg>
+                                Kurs Valas
                             </a>
-                        </li>
-                    </ul>
-                </div>
-
-                <div class="mx-4 border-t border-gray-200" x-show="!sidebarOpen"></div>
-
-                {{-- Monitoring & User Section --}}
-                <div>
-                    <div class="px-6 py-2 text-[10px] font-bold text-gray-500 uppercase transition-all duration-300 whitespace-nowrap"
-                        :class="sidebarOpen ? 'opacity-100' : 'opacity-0 hidden'">
-                        Monitoring & User
+                        </div>
                     </div>
 
-                    <ul class="space-y-1">
-                        <li>
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open"
+                            class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center space-x-1
+                            {{ request()->routeIs('admin.transactions.*') || request()->routeIs('admin.withdrawals.*') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
+                            <span>Approval</span>
+                            <svg class="w-4 h-4 transition-transform duration-200" :class="open ? 'rotate-180' : ''"
+                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-cloak
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                            class="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-xl z-50 py-1">
+
                             <a href="{{ route('admin.transactions.index') }}"
-                                class="relative flex items-center py-3 hover:bg-gray-100 transition-colors duration-200
-                               {{ request()->routeIs('admin.transactions.index') ? 'bg-gray-100 text-gray-900' : 'text-gray-600' }}"
-                                :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="Data Top Up">
-                                @if(request()->routeIs('admin.transactions.index'))
-                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-800 rounded-r"></div>
-                                @endif
-                                <span class="text-lg w-6 text-center transition-all duration-300"
-                                    :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-arrow-down"></i></span>
-                                <span class="whitespace-nowrap transition-opacity duration-300 font-medium"
-                                    :class="sidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden w-0'">Data Top
-                                    Up</span>
+                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                                </svg>
+                                Data Top Up
                             </a>
-                        </li>
-
-                        <li>
                             <a href="{{ route('admin.withdrawals.index') }}"
-                                class="relative flex items-center py-3 hover:bg-gray-100 transition-colors duration-200
-                               {{ request()->routeIs('admin.withdrawals.index') ? 'bg-gray-100 text-gray-900' : 'text-gray-600' }}"
-                                :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="Data Withdraw">
-                                @if(request()->routeIs('admin.withdrawals.index'))
-                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-800 rounded-r"></div>
-                                @endif
-                                <span class="text-lg w-6 text-center transition-all duration-300"
-                                    :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-arrow-up"></i></span>
-                                <span class="whitespace-nowrap transition-opacity duration-300 font-medium"
-                                    :class="sidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden w-0'">Data
-                                    Withdraw</span>
+                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                </svg>
+                                Data Withdraw
                             </a>
-                        </li>
-
-                        <li>
-                            <a href="{{ route('admin.users.index') }}"
-                                class="relative flex items-center py-3 hover:bg-gray-100 transition-colors duration-200 {{ request()->routeIs('admin.users.*') ? 'bg-gray-100 text-gray-900' : 'text-gray-600' }}"
-                                :class="sidebarOpen ? 'px-6' : 'px-0 justify-center'" title="App User">
-                                @if(request()->routeIs('admin.users.*'))
-                                <div class="absolute left-0 top-0 bottom-0 w-1 bg-gray-800 rounded-r"></div>
-                                @endif
-                                <span class="text-lg w-6 text-center transition-all duration-300"
-                                    :class="sidebarOpen ? 'mr-3' : ''"><i class="fas fa-users"></i></span>
-                                <span class="whitespace-nowrap transition-opacity duration-300 font-medium"
-                                    :class="sidebarOpen ? 'opacity-100 block' : 'opacity-0 hidden w-0'">App User</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </nav>
-
-            {{-- Sidebar Footer --}}
-            <div class="border-t border-gray-200 bg-white transition-all duration-300"
-                :class="sidebarOpen ? 'p-4' : 'p-2'">
-
-                <div class="flex items-center gap-3 p-2" :class="sidebarOpen ? '' : 'justify-center'">
-                    <div
-                        class="w-8 h-8 rounded-full bg-gray-800 text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                        A
+                        </div>
                     </div>
-                    <div class="overflow-hidden transition-all duration-300"
-                        :class="sidebarOpen ? 'opacity-100 w-auto' : 'opacity-0 hidden w-0'">
-                        <p class="text-sm font-bold text-gray-900 truncate">Administrator</p>
-                        <p class="text-[10px] text-gray-500 truncate">Super Admin</p>
+
+                    <a href="{{ route('admin.users.index') }}"
+                        class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
+                        {{ request()->routeIs('admin.users.*') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
+                        Pengguna
+                    </a>
+
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <div class="hidden md:block text-xs font-medium text-gray-400 font-mono" id="currentDate"></div>
+
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click="open = !open" class="flex items-center space-x-2 focus:outline-none">
+                            <div
+                                class="w-8 h-8 rounded-md bg-gray-200 border border-gray-300 flex items-center justify-center text-gray-700 font-bold hover:bg-gray-300 transition-colors">
+                                {{ substr(Auth::user()->name, 0, 1) }}
+                            </div>
+                        </button>
+
+                        <div x-show="open" @click.away="open = false" x-cloak
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+                            class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-xl z-50">
+                            <div class="p-3 border-b border-gray-100">
+                                <p class="text-sm font-semibold text-gray-900 truncate">{{ Auth::user()->name }}</p>
+                                <p class="text-xs text-gray-500 truncate">Administrator</p>
+                            </div>
+                            <div class="py-1">
+                                <form action="{{ route('logout') }}" method="POST">
+                                    @csrf
+                                    <button type="submit"
+                                        class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium flex items-center">
+                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                                            </path>
+                                        </svg>
+                                        Keluar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:hidden">
+                        <button @click="mobileOpen = !mobileOpen" x-data="{ mobileOpen: false }"
+                            class="text-gray-600 hover:text-black">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
-
-                <form action="{{ route('logout') }}" method="POST" class="mt-2">
-                    @csrf
-                    <button
-                        class="w-full text-left text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg flex items-center gap-2 transition"
-                        :class="sidebarOpen ? '' : 'justify-center'" title="Keluar">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span x-show="sidebarOpen">Keluar Aplikasi</span>
-                    </button>
-                </form>
             </div>
-        </aside>
+        </div>
 
-        {{-- Main Content --}}
-        <main class="flex-1 h-full overflow-y-auto bg-gray-50 transition-all duration-300 ease-in-out"
-            :class="sidebarOpen ? 'ml-64' : 'ml-20'">
-
-            <header
-                class="bg-white border-b border-gray-200 p-6 sticky top-0 z-40 flex items-center justify-between shadow-sm">
-                <h2 class="text-xl font-bold text-gray-900">@yield('header', 'Admin Dashboard')</h2>
-                <div class="text-xs text-gray-500 font-mono"
-                    x-text="new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })">
-                </div>
-            </header>
-
-            <div class="p-8 pb-20">
-                {{-- Notifikasi --}}
-                @if(session('success'))
-                <div
-                    class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2 text-sm">
-                    <i class="fas fa-check-circle"></i> {{ session('success') }}
-                </div>
-                @endif
-
-                @if(session('error'))
-                <div
-                    class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2 text-sm">
-                    <i class="fas fa-exclamation-circle"></i> {{ session('error') }}
-                </div>
-                @endif
-
-                @if(session('warning'))
-                <div
-                    class="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2 text-sm">
-                    <i class="fas fa-exclamation-triangle"></i> {{ session('warning') }}
-                </div>
-                @endif
-
-                @if(session('info'))
-                <div
-                    class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2 text-sm">
-                    <i class="fas fa-info-circle"></i> {{ session('info') }}
-                </div>
-                @endif
-
-                @yield('content')
+        <div class="md:hidden border-t border-gray-200 bg-white" x-data="{ mobileOpen: false }" x-show="mobileOpen"
+            @click.away="mobileOpen = false" style="display: none;">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="{{ route('admin.dashboard') }}"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Dashboard</a>
+                <a href="{{ route('admin.assets.index') }}"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Master
+                    Aset</a>
+                <a href="{{ route('admin.transactions.index') }}"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Approval Top
+                    Up</a>
+                <a href="{{ route('admin.users.index') }}"
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Kelola
+                    Pengguna</a>
             </div>
-        </main>
+        </div>
+    </nav>
 
-    </div>
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
+        @hasSection('header')
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">@yield('header')</h1>
+            <div class="w-12 h-1 bg-black mt-4 rounded-full"></div>
+        </div>
+        @endif
+
+        {{-- Notifikasi --}}
+        @if(session('success'))
+        <div
+            class="bg-white border-l-4 border-black text-gray-700 px-4 py-3 shadow-sm mb-6 flex items-center gap-3 text-sm rounded-r-md">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            {{ session('success') }}
+        </div>
+        @endif
+
+        @if(session('error'))
+        <div
+            class="bg-white border-l-4 border-red-500 text-gray-700 px-4 py-3 shadow-sm mb-6 flex items-center gap-3 text-sm rounded-r-md">
+            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            {{ session('error') }}
+        </div>
+        @endif
+
+        @yield('content')
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
+                <p>&copy; {{ date('Y') }} MyInvest Admin.</p>
+                <p class="mt-2 md:mt-0 font-medium text-gray-400">Secure Admin Panel</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateElement = document.getElementById('currentDate');
+        if (dateElement) {
+            const now = new Date();
+            dateElement.textContent = now.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+    });
+    </script>
+    @yield('scripts')
 </body>
 
 </html>

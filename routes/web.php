@@ -55,6 +55,16 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
+    // Menu Form Corporate Action
+    Route::get('/transactions/dividend-cash', [TransactionController::class, 'formDividendCash'])->name('transactions.dividend.cash');
+    Route::get('/transactions/dividend-unit', [TransactionController::class, 'formDividendUnit'])->name('transactions.dividend.unit');
+    Route::get('/transactions/stock-split', [TransactionController::class, 'formStockSplit'])->name('transactions.stocksplit');
+    Route::get('/transactions/right-issue', [TransactionController::class, 'formRightIssue'])->name('transactions.rightissue');
+    Route::get('/transactions/bonus', [TransactionController::class, 'formBonus'])->name('transactions.bonus'); // Logika mirip Dividend Unit
+
+    // Proses Submit
+    Route::post('/transactions/process-corporate-action', [TransactionController::class, 'processCorporateAction'])->name('transactions.process_ca');
+
     // Exchange
     Route::get('/exchange', [ExchangeController::class, 'index'])->name('exchange.index');
     Route::post('/exchange', [ExchangeController::class, 'process'])->name('exchange.process');
@@ -123,6 +133,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('/assets/sync-crypto', [AssetController::class, 'syncCryptoPrices'])->name('assets.syncCrypto');
     Route::post('/assets/sync-all', [AssetController::class, 'syncAllPrices'])->name('assets.syncAll');
     Route::delete('/assets/{id}', [AssetController::class, 'destroy'])->name('assets.destroy');
+    // Existing resource route likely looks like this:
+    Route::resource('assets', AssetController::class);
+
+    // === ADD THIS LINE ===
+    Route::post('assets/sync', [AssetController::class, 'syncPrices'])->name('assets.sync');
 
     // Exchange Rates (tambahkan jika perlu)
     Route::post('/exchange-rate/update', [AssetController::class, 'updateRate'])->name('exchange.update');

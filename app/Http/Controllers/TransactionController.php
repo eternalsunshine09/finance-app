@@ -447,4 +447,157 @@ public function update(Request $request, $id)
 
             return back()->with('success', 'Transaksi berhasil dihapus dan saldo dikembalikan.');
         }
+        // ===========================
+    // 6. FORM CORPORATE ACTIONS
+    // ===========================
+    
+// Di dalam TransactionController.php
+
+    public function formDividendCash() {
+    // Ambil data portfolio user yang quantity-nya > 0
+    // Gunakan 'with' untuk mengambil data detail Asset (Nama, Logo, dll)
+        $portfolios = \App\Models\Portfolio::with('asset')
+            ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->where('quantity', '>', 0)
+            ->get();
+
+    // Ambil wallet untuk tujuan transfer
+    $wallets = \App\Models\Wallet::where('user_id', \Illuminate\Support\Facades\Auth::id())->get();
+
+    return view('transactions.corporate.dividend_cash', compact('wallets', 'portfolios'));
+}
+
+    public function formDividendUnit() {
+        $portfolios = Portfolio::where('user_id', Auth::id())->where('quantity', '>', 0)->get();
+        return view('transactions.corporate.dividend_unit', compact('portfolios'));
+    }
+
+    public function formStockSplit() {
+        $portfolios = Portfolio::where('user_id', Auth::id())->where('quantity', '>', 0)->get();
+        return view('transactions.corporate.stock_split', compact('portfolios'));
+    }
+
+    public function formRightIssue() {
+        $wallets = Wallet::where('user_id', Auth::id())->get();
+        $portfolios = Portfolio::where('user_id', Auth::id())->where('quantity', '>', 0)->get();
+        return view('transactions.corporate.right_issue', compact('wallets', 'portfolios'));
+    }
+
+    public function formBonus() {
+        // Saham bonus mirip dividen saham, hanya beda istilah akuntansi
+        return $this->formDividendUnit(); 
+    }
+
+    // ===========================
+    // 7. PROSES LOGIKA CORPORATE ACTIONS
+    // ===========================
+    
+    public function processCorporateAction(Request $request)
+    {
+        $user = Auth::user();
+        $type = $request->action_type; // 'DIV_CASH', 'DIV_UNIT', 'SPLIT', 'RIGHT_ISSUE'
+
+        return DB::transaction(function () use ($request, $user, $type) {
+            
+            // Ambil Portfolio yang terkena dampak
+            $portfolio = Portfolio::where('user_id', $user->id)
+                                  ->where('asset_symbol', $request->asset_symbol)
+                                  ->firstOrFail();
+
+            if ($type == 'DIV_CASH') {
+                // DIVIDEN TUNAI: Tambah Saldo Wallet, Portfolio tetap
+                $request->validate(['amount_received' => 'required|numeric|min:1', 'wallet_id' => 'required']);
+                
+                $wallet = Wallet::where('id', $request->wallet_id)->where('user_id', $user->id)->firstOrFail();
+                $wallet->increment('balance', $request->amount_received);
+
+                $desc = "Dividen Tunai dari " . $request->asset_symbol;
+                $cashFlow = $request->amount_received;
+                
+            } 
+            elseif ($type == 'DIV_UNIT' || $type == 'BONUS') {
+                // DIVIDEN SAHAM / BONUS: Tambah Unit, Harga Average Turun
+                // Rumus: Total Modal Tetap, dibagi (Qty Lama + Qty Baru)
+                $request->validate(['quantity_received' => 'required|numeric|min:1']);
+
+                $oldTotalValue = $portfolio->quantity * $portfolio->average_buy_price;
+                $newQuantity = $portfolio->quantity + $request->quantity_received;
+                
+                // Harga rata-rata baru menjadi lebih murah
+                $newAvgPrice = $oldTotalValue / $newQuantity;
+
+                $portfolio->update([
+                    'quantity' => $newQuantity,
+                    'average_buy_price' => $newAvgPrice
+                ]);
+
+                $desc = "Dividen Saham/Bonus: +" . $request->quantity_received . " unit " . $request->asset_symbol;
+                $wallet = null; // Tidak melibatkan uang cash
+                $cashFlow = 0;
+            }
+            elseif ($type == 'SPLIT') {
+                // STOCK SPLIT: Ubah Quantity & Harga sesuai Rasio
+                // Contoh Rasio 1:5 (1 Saham lama jadi 5 Saham baru)
+                // Input user: Faktor pengali (misal 5)
+                $request->validate(['split_ratio' => 'required|numeric|min:0.1']);
+
+                $ratio = $request->split_ratio; // Misal 5 (Stock Split) atau 0.5 (Reverse Split)
+                
+                $portfolio->quantity = $portfolio->quantity * $ratio;
+                $portfolio->average_buy_price = $portfolio->average_buy_price / $ratio;
+                $portfolio->save();
+
+                $desc = "Stock Split " . $request->asset_symbol . " Rasio 1:" . $ratio;
+                $wallet = null;
+                $cashFlow = 0;
+            }
+            elseif ($type == 'RIGHT_ISSUE') {
+                // RIGHT ISSUE: Seperti Beli Baru (Tebus), tapi ada harga khusus
+                // Mengurangi Wallet, Menambah Portfolio, Update Average Price
+                $request->validate([
+                    'quantity' => 'required|numeric|min:1',
+                    'exercise_price' => 'required|numeric|min:1',
+                    'wallet_id' => 'required'
+                ]);
+
+                $wallet = Wallet::where('id', $request->wallet_id)->where('user_id', $user->id)->firstOrFail();
+                $cost = $request->quantity * $request->exercise_price;
+
+                if ($wallet->balance < $cost) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['error' => 'Saldo tidak cukup untuk tebus Right Issue']);
+                }
+
+                $wallet->decrement('balance', $cost);
+
+                // Hitung Average Down
+                $oldVal = $portfolio->quantity * $portfolio->average_buy_price;
+                $newVal = $oldVal + $cost;
+                $newQty = $portfolio->quantity + $request->quantity;
+                
+                $portfolio->update([
+                    'quantity' => $newQty,
+                    'average_buy_price' => $newVal / $newQty
+                ]);
+
+                $desc = "Tebus Right Issue " . $request->asset_symbol . " @ " . number_format($request->exercise_price);
+                $cashFlow = -$cost;
+            }
+
+            // Catat Transaksi
+            Transaction::create([
+                'user_id' => $user->id,
+                'wallet_id' => $wallet ? $wallet->id : null, // Bisa null jika stock split/dividen unit
+                'type' => $type, // Pastikan kolom ENUM di database support ini, atau ubah jadi VARCHAR
+                'status' => 'approved',
+                'asset_symbol' => $request->asset_symbol,
+                'amount' => $request->quantity ?? $request->quantity_received ?? 0, // Unit aset yg berubah
+                'price_per_unit' => $request->exercise_price ?? 0,
+                'amount_cash' => $cashFlow,
+                'description' => $desc,
+                'date' => $request->date ?? now(),
+            ]);
+
+            return redirect()->route('portfolio.index')->with('success', 'Corporate Action berhasil diproses!');
+        });
+    }
 }
