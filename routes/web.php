@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\MarketController; // <- Tambahkan ini
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\AdminDashboardController;
@@ -11,32 +12,17 @@ use App\Http\Controllers\AdminAssetController;
 use App\Http\Controllers\AdminTransactionController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\MarketController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminExchangeRateController;
 
-/*
-|--------------------------------------------------------------------------
-| 1. PUBLIC ROUTES (Bisa diakses Siapa Saja)
-|--------------------------------------------------------------------------
-| Route '/' ditaruh di luar middleware agar menjadi halaman pertama
-| yang muncul saat website dibuka, entah user sudah login atau belum.
-*/
-
+// Public Routes
 Route::get('/', function () {
-    // Ambil data aset acak buat hiasan ticker harga di depan
     $assets = \App\Models\Asset::take(5)->get(); 
-    return view('welcome', compact('assets')); 
+    return view('welcome', compact('assets'));
 })->name('welcome');
 
-
-/*
-|--------------------------------------------------------------------------
-| 2. GUEST ROUTES (Hanya untuk yang BELUM Login)
-|--------------------------------------------------------------------------
-| Jika user sudah login dan mencoba akses ini, akan dilempar ke Dashboard
-*/
+// Guest Routes
 Route::middleware(['guest'])->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -44,112 +30,105 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('register.process');
 });
 
-
-/*
-|--------------------------------------------------------------------------
-| 3. AUTH MEMBER ROUTES (Hanya untuk Member Login)
-|--------------------------------------------------------------------------
-*/
+// Auth Member Routes
 Route::middleware(['auth'])->group(function () {
     
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-    // FITUR PROFIL
+    // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    // Fitur Top Up
+    // Transactions
     Route::get('/topup', [TransactionController::class, 'showTopUpForm'])->name('topup');
     Route::post('/topup', [TransactionController::class, 'topUp'])->name('topup.process');
-
-    // Fitur Withdraw
     Route::get('/withdraw', [TransactionController::class, 'showWithdrawForm'])->name('withdraw');
     Route::post('/withdraw', [TransactionController::class, 'withdraw'])->name('withdraw.process');
-
-    // Fitur Beli
     Route::get('/buy', [TransactionController::class, 'showBuyForm'])->name('buy');
     Route::post('/buy', [TransactionController::class, 'processBuy'])->name('buy.process');
-
-    // Fitur Jual
-    Route::get('/sell/{symbol?}', [App\Http\Controllers\TransactionController::class, 'sell'])->name('sell');
-    Route::post('/sell/process', [App\Http\Controllers\TransactionController::class, 'processSell'])->name('sell.process');
-
-    // Fitur History
+    Route::get('/sell/{symbol?}', [TransactionController::class, 'sell'])->name('sell');
+    Route::post('/sell/process', [TransactionController::class, 'processSell'])->name('sell.process');
     Route::get('/history', [TransactionController::class, 'history'])->name('history');
-    // === Route untuk Edit & Hapus Transaksi ===
     Route::get('/transactions/{id}/edit', [TransactionController::class, 'edit'])->name('transactions.edit');
     Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
-    // Fitur Exchange
-   // Route untuk Halaman & Proses Konversi
+    // Exchange
     Route::get('/exchange', [ExchangeController::class, 'index'])->name('exchange.index');
     Route::post('/exchange', [ExchangeController::class, 'process'])->name('exchange.process');
 
-    // Wallet Index & Store
+    // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet', [WalletController::class, 'store'])->name('wallet.store');
-    
-
-    // Halaman History Wallet (WAJIB DITARUH DI ATAS {id})
     Route::get('/wallet/history', [WalletController::class, 'history'])->name('wallet.history');
-    
-    // --- TAMBAHKAN BARIS INI (Rute Show/Detail) ---
     Route::get('/wallet/{id}', [WalletController::class, 'show'])->name('wallet.show');
-
-    // Wallet Resource (Edit, Update, Destroy)
     Route::get('/wallet/{id}/edit', [WalletController::class, 'edit'])->name('wallet.edit');
     Route::put('/wallet/{id}', [WalletController::class, 'update'])->name('wallet.update');
     Route::delete('/wallet/{id}', [WalletController::class, 'destroy'])->name('wallet.destroy');
 
-    // MENU MARKET / EXCHANGE
-    Route::get('/market', [MarketController::class, 'index'])->name('market.index');
-
-    // MENU PORTOFOLIO
+    // Market Routes
+    Route::middleware(['auth', 'verified'])->group(function () {
+        // Indonesia Market
+        Route::get('/market/indonesia', [MarketController::class, 'index'])
+            ->name('market.index');
+        
+        // US Market  
+        Route::get('/market/us', [MarketController::class, 'us'])
+            ->name('market.us');
+        
+        // Crypto Market
+        Route::get('/market/crypto', [MarketController::class, 'crypto'])
+            ->name('market.crypto');
+        
+        // Commodities Market
+        Route::get('/market/commodities', [MarketController::class, 'commodities'])
+            ->name('market.commodities');
+        
+        // Reksadana Market
+        Route::get('/market/reksadana', [MarketController::class, 'reksadana'])->name('market.reksadana');
+    });
+    
+    // Portfolio
     Route::get('/portfolio', [PortfolioController::class, 'index'])->name('portfolio.index');
 
-    // API INTERNAL: Untuk ambil harga aset via Javascript
+    // API
     Route::get('/api/price/{symbol}', function ($symbol) {
         $asset = \App\Models\Asset::where('symbol', $symbol)->first();
         return response()->json([
             'price' => $asset ? $asset->current_price : 0
         ]);
     })->name('api.price');
-    // API INTERNAL: Untuk ambil data chart via Javascript
-        Route::get('/api/chart-data', [App\Http\Controllers\DashboardController::class, 'getChartData'])->name('api.chart');
+    
+    Route::get('/api/chart-data', [DashboardController::class, 'getChartData'])->name('api.chart');
 });
 
-
-/*
-|--------------------------------------------------------------------------
-| 4. ADMIN ROUTES (Hanya untuk Role Admin)
-|--------------------------------------------------------------------------
-*/
+// ====== ADMIN ROUTES ======
+// Note: Untuk admin assets, kita tetap gunakan AssetController khusus admin
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     
-    // Dashboard Admin
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
-    Route::get('/users/{id}', [AdminUserController::class, 'show'])->name('users.show'); 
+    Route::get('/users/{id}', [AdminUserController::class, 'show'])->name('users.show');
 
-    // Master Aset (CRUD)
-    Route::get('/assets', [AdminAssetController::class, 'index'])->name('assets.index');
-    Route::get('/assets/create', [AdminAssetController::class, 'create'])->name('assets.create');
-    Route::post('/assets', [AdminAssetController::class, 'store'])->name('assets.store');
-    Route::get('/assets/{id}/edit', [AdminAssetController::class, 'edit'])->name('assets.edit');
-    Route::put('/assets/{id}', [AdminAssetController::class, 'update'])->name('assets.update');
-    Route::patch('/assets/{id}/price', [AdminAssetController::class, 'updatePrice'])->name('assets.updatePrice');
-    Route::post('/assets/sync', [AdminAssetController::class, 'syncPrices'])->name('assets.sync'); // Sync Prices
-    Route::post('/admin/assets/sync', [AdminAssetController::class, 'syncPrices'])->name('admin.assets.sync');
-    Route::delete('/assets/{id}', [AdminAssetController::class, 'destroy'])->name('assets.destroy');
+    // ====== ADMIN ASSETS (CRUD) ======
+    // Pastikan ini mengarah ke AssetController yang kita buat untuk admin
+    Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
+    Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
+    Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
+    Route::get('/assets/{id}/edit', [AssetController::class, 'edit'])->name('assets.edit');
+    Route::put('/assets/{id}', [AssetController::class, 'update'])->name('assets.update');
+    Route::patch('/assets/{id}/price', [AssetController::class, 'updatePrice'])->name('assets.updatePrice');
+    Route::post('/assets/sync-crypto', [AssetController::class, 'syncCryptoPrices'])->name('assets.syncCrypto');
+    Route::post('/assets/sync-all', [AssetController::class, 'syncAllPrices'])->name('assets.syncAll');
+    Route::delete('/assets/{id}', [AssetController::class, 'destroy'])->name('assets.destroy');
 
-    // Fitur Kelola Kurs (Exchange Rate)
-    Route::post('/exchange-rate/update', [AdminAssetController::class, 'updateRate'])->name('exchange.update');
-    Route::post('/exchange-rate/sync-api', [AdminAssetController::class, 'syncRateAPI'])->name('exchange.syncApi');
+    // Exchange Rates (tambahkan jika perlu)
+    Route::post('/exchange-rate/update', [AssetController::class, 'updateRate'])->name('exchange.update');
+    Route::post('/exchange-rate/sync-api', [AssetController::class, 'syncRateAPI'])->name('exchange.syncApi');
 
-    // KELOLA VALAS (Admin Exchange Rates)
+    // Admin Exchange Rates (jika ada controller terpisah)
     Route::prefix('exchange-rates')->name('exchange-rates.')->group(function () {
         Route::get('/', [AdminExchangeRateController::class, 'index'])->name('index');
         Route::post('/', [AdminExchangeRateController::class, 'store'])->name('store');
@@ -157,12 +136,12 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::delete('/{currency}', [AdminExchangeRateController::class, 'destroy'])->name('destroy');
     });
 
-    // Transaksi (Top Up)
+    // Transactions
     Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
     Route::patch('/transactions/{id}/approve', [AdminTransactionController::class, 'approve'])->name('transactions.approve');
     Route::patch('/transactions/{id}/reject', [AdminTransactionController::class, 'reject'])->name('transactions.reject');
 
-    // Transaksi (Withdraw)
+    // Withdrawals
     Route::get('/withdrawals', [AdminTransactionController::class, 'indexWithdrawals'])->name('withdrawals.index');
     Route::patch('/withdrawals/{id}/approve', [AdminTransactionController::class, 'approveWithdraw'])->name('withdrawals.approve');
     Route::patch('/withdrawals/{id}/reject', [AdminTransactionController::class, 'rejectWithdraw'])->name('withdrawals.reject');

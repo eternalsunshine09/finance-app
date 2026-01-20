@@ -2,94 +2,197 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Asset;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class AssetController extends Controller
 {
-    // 1. Tampilkan Daftar Aset
+    /**
+     * TAMPILKAN SEMUA ASET (Admin)
+     */
     public function index()
     {
-        $assets = Asset::all();
+        $assets = Asset::orderBy('type')->orderBy('symbol')->get();
         return view('admin.assets.index', compact('assets'));
     }
 
-    // 2. Simpan Aset Baru
-    // UPDATE METHOD STORE (Tambah api_id)
+    /**
+     * TAMPILKAN FORM TAMBAH ASET
+     */
+    public function create()
+    {
+        return view('admin.assets.create');
+    }
+
+    /**
+     * SIMPAN ASET BARU
+     */
     public function store(Request $request)
     {
-        $request->validate([
-            'symbol' => 'required|unique:assets,symbol|uppercase|max:10',
-            'name' => 'required|string|max:255',
-            'type' => 'required|in:stock,crypto',
-            'current_price' => 'required|numeric',
-            'api_id' => 'nullable|string', // 👈 Validasi baru
+        $validated = $request->validate([
+            'symbol'        => ['required', 'unique:assets,symbol', 'uppercase', 'max:10'],
+            'name'          => ['required', 'string', 'max:255'],
+            'type'          => ['required', 'in:stock,us_stock,crypto'],
+            'current_price' => ['required', 'numeric', 'min:0'],
+            'api_id'        => ['nullable', 'string', 'max:100'],
         ]);
 
-        Asset::create($request->all());
+        Asset::create($validated);
 
-        return redirect()->back()->with('success', 'Aset baru berhasil ditambahkan!');
+        return redirect()->route('admin.assets.index')
+            ->with('success', 'Aset berhasil ditambahkan!');
     }
 
-    // 3. Update Harga Aset
-    public function updatePrice(Request $request, $id)
+    /**
+     * TAMPILKAN FORM EDIT ASET
+     * Menggunakan Route Model Binding (Asset $asset) menggantikan $id
+     */
+    public function edit(Asset $asset)
     {
-        $request->validate([
-            'current_price' => 'required|numeric',
+        return view('admin.assets.edit', compact('asset'));
+    }
+
+    /**
+     * UPDATE ASET
+     */
+    public function update(Request $request, Asset $asset)
+    {
+        $validated = $request->validate([
+            'symbol' => [
+                'required',
+                'uppercase',
+                'max:10',
+                Rule::unique('assets')->ignore($asset->id), // Syntax modern untuk unique ignore
+            ],
+            'name'          => ['required', 'string', 'max:255'],
+            'type'          => ['required', 'in:stock,us_stock,crypto'],
+            'current_price' => ['required', 'numeric', 'min:0'],
+            'api_id'        => ['nullable', 'string', 'max:100'],
         ]);
 
-        $asset = Asset::findOrFail($id);
+        $asset->update($validated);
+
+        return redirect()->route('admin.assets.index')
+            ->with('success', 'Aset berhasil diperbarui!');
+    }
+
+    /**
+     * UPDATE HARGA SAJA
+     */
+    public function updatePrice(Request $request, Asset $asset)
+    {
+        $request->validate([
+            'current_price' => 'required|numeric|min:0'
+        ]);
+
         $asset->update(['current_price' => $request->current_price]);
 
-        return redirect()->back()->with('success', 'Harga berhasil diupdate!');
+        return redirect()->back()
+            ->with('success', 'Harga aset berhasil diperbarui!');
     }
 
-    // 👇👇 FITUR BARU: SYNC HARGA DARI COINGECKO 👇👇
-    public function syncToApi()
+    /**
+     * HAPUS ASET
+     */
+    public function destroy(Asset $asset)
     {
-        // 1. Ambil semua aset yang punya api_id (Khusus Crypto biasanya)
-        $assets = Asset::whereNotNull('api_id')->get();
+        $asset->delete();
+
+        return redirect()->route('admin.assets.index')
+            ->with('success', 'Aset berhasil dihapus!');
+    }
+
+    /**
+     * SINCRONISASI HARGA CRYPTO DARI COINGECKO
+     */
+    public function syncCryptoPrices()
+    {
+        $assets = Asset::where('type', 'crypto')
+            ->whereNotNull('api_id')
+            ->get();
 
         if ($assets->isEmpty()) {
-            return back()->with('error', 'Belum ada aset dengan API ID!');
+            return back()->with('error', 'Tidak ada aset crypto dengan API ID!');
         }
 
-        // 2. Kumpulkan ID-nya (contoh: "bitcoin,ethereum,dogecoin")
+        // Ambil semua ID untuk mengurangi request API (Batch request)
         $ids = $assets->pluck('api_id')->join(',');
 
-        // 3. Tembak API CoinGecko (Gratis, tanpa API Key)
-        // Kita minta harga dalam IDR
-        $response = Http::get("https://api.coingecko.com/api/v3/simple/price", [
-            'ids' => $ids,
-            'vs_currencies' => 'idr'
-        ]);
+        try {
+            $response = Http::get("https://api.coingecko.com/api/v3/simple/price", [
+                'ids'           => $ids,
+                'vs_currencies' => 'usd'
+            ]);
 
-        if ($response->failed()) {
-            return back()->with('error', 'Gagal menghubungi Server CoinGecko!');
+            if ($response->failed()) {
+                return back()->with('error', 'Gagal terhubung ke CoinGecko API!');
+            }
+
+            $data = $response->json();
+            $updatedCount = 0;
+
+            foreach ($assets as $asset) {
+                // Cek apakah data tersedia di response JSON
+                if (isset($data[$asset->api_id]['usd'])) {
+                    $asset->update([
+                        'current_price' => $data[$asset->api_id]['usd']
+                    ]);
+                    $updatedCount++;
+                }
+            }
+
+            return back()->with('success', "Berhasil sinkronisasi {$updatedCount} aset crypto!");
+
+        } catch (\Exception $e) {
+            Log::error("CoinGecko Error: " . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan sistem saat sinkronisasi.');
         }
+    }
 
-        $data = $response->json();
+    /**
+     * SINCRONISASI SEMUA HARGA DARI YAHOO FINANCE
+     */
+    public function syncAllPrices()
+    {
+        // Tips: Untuk production, sebaiknya gunakan Job/Queue agar tidak timeout
+        $assets = Asset::all();
+        $updated = 0;
 
-        // 4. Update Database Kita
         foreach ($assets as $asset) {
-            $apiId = $asset->api_id; // misal: bitcoin
-            
-            // Cek apakah data bitcoin ada di response?
-            if (isset($data[$apiId]['idr'])) {
-                $newPrice = $data[$apiId]['idr'];
+            try {
+                // Tentukan simbol yang sesuai format Yahoo Finance
+                $symbol = ($asset->type === 'crypto') ? $asset->symbol . '-USD' : $asset->symbol;
                 
-                $asset->update(['current_price' => $newPrice]);
+                $url = "https://query1.finance.yahoo.com/v8/finance/chart/{$symbol}?interval=1d&range=1d";
+                
+                // withoutVerifying() digunakan jika sertifikat SSL yahoo bermasalah di lokal server
+                $response = Http::withoutVerifying()->get($url);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    
+                    // Validasi struktur JSON Yahoo Finance yang dalam
+                    $result = $data['chart']['result'][0] ?? null;
+                    
+                    if ($result && isset($result['meta']['regularMarketPrice'])) {
+                        $price = $result['meta']['regularMarketPrice'];
+                        
+                        if ($price > 0) {
+                            $asset->update(['current_price' => $price]);
+                            $updated++;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Lanjutkan loop meskipun satu aset gagal, tapi catat errornya
+                Log::warning("Yahoo Finance Error for {$asset->symbol}: " . $e->getMessage());
+                continue;
             }
         }
 
-        return back()->with('success', 'Sukses! Harga aset berhasil di-update dari Pasar Global.');
-    }
-
-    // 4. Hapus Aset
-    public function destroy($id)
-    {
-        Asset::destroy($id);
-        return redirect()->back()->with('success', 'Aset dihapus!');
+        return back()->with('success', "Berhasil update {$updated} dari {$assets->count()} aset!");
     }
 }

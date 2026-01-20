@@ -169,9 +169,14 @@ class DashboardController extends Controller
     {
         $today = Carbon::today();
         
+        // Tentukan awal dan akhir hari ini
+        $startOfDay = $today->copy()->startOfDay();
+        $endOfDay = $today->copy()->endOfDay();
+
+        // PERBAIKAN: Gunakan whereBetween dengan parameter yang benar
         // Cek apakah sudah ada data untuk hari ini
         $existingHistory = PortfolioHistory::where('user_id', $user->id)
-            ->whereDate('date', $today)
+            ->whereBetween('created_at', [$startOfDay, $endOfDay])
             ->first();
 
         if (!$existingHistory) {
@@ -184,7 +189,7 @@ class DashboardController extends Controller
 
             // Hapus data lama (lebih dari 90 hari) untuk menjaga database
             PortfolioHistory::where('user_id', $user->id)
-                ->where('date', '<', $today->subDays(90))
+                ->where('date', '<', $today->copy()->subDays(90))
                 ->delete();
         }
     }

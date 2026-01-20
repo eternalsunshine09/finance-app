@@ -13,9 +13,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // Jalankan setiap akhir bulan jam 23:50
-        $schedule->command('snapshot:monthly')
-                 ->monthlyOn('last day of the month', '23:50')
-                 ->timezone('Asia/Jakarta');
+        $schedule->command('some:command')->monthlyOn(1);
 
         // Atau jalankan setiap hari untuk backup harian (opsional)
         $schedule->command('snapshot:monthly --date=' . now()->format('Y-m-d'))
