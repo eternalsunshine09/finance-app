@@ -73,8 +73,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/buy', [TransactionController::class, 'processBuy'])->name('buy.process');
 
     // Fitur Jual
-    Route::get('/sell/{symbol}', [TransactionController::class, 'showSellForm'])->name('sell');
-    Route::post('/sell', [TransactionController::class, 'sellAsset'])->name('sell.process');
+    Route::get('/sell/{symbol?}', [App\Http\Controllers\TransactionController::class, 'sell'])->name('sell');
+    Route::post('/sell/process', [App\Http\Controllers\TransactionController::class, 'processSell'])->name('sell.process');
 
     // Fitur History
     Route::get('/history', [TransactionController::class, 'history'])->name('history');
@@ -138,6 +138,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/assets', [AdminAssetController::class, 'index'])->name('assets.index');
     Route::get('/assets/create', [AdminAssetController::class, 'create'])->name('assets.create');
     Route::post('/assets', [AdminAssetController::class, 'store'])->name('assets.store');
+    Route::get('/assets/{id}/edit', [AdminAssetController::class, 'edit'])->name('assets.edit');
+    Route::put('/assets/{id}', [AdminAssetController::class, 'update'])->name('assets.update');
     Route::patch('/assets/{id}/price', [AdminAssetController::class, 'updatePrice'])->name('assets.updatePrice');
     Route::post('/assets/sync', [AdminAssetController::class, 'syncPrices'])->name('assets.sync'); // Sync Prices
     Route::post('/admin/assets/sync', [AdminAssetController::class, 'syncPrices'])->name('admin.assets.sync');

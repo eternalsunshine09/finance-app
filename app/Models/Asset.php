@@ -12,6 +12,7 @@ class Asset extends Model
     // 👇 TAMBAHKAN BAGIAN INI 👇
     protected $fillable = [
         'symbol',
+        'logo',
         'name',
         'type',
         'subtype',

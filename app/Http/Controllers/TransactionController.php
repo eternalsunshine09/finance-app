@@ -105,6 +105,73 @@ class TransactionController extends Controller
 
     return redirect()->route('wallet.index')->with('success', 'Pembelian Aset Berhasil!');
 }
+    public function sell($symbol = null)
+    {
+        $user = Auth::user();
+        // Hanya ambil aset yang benar-benar dimiliki user
+        $myPortfolio = Portfolio::where('user_id', $user->id)
+                                ->where('quantity', '>', 0)
+                                ->get();
+                                
+        $wallets = Wallet::where('user_id', $user->id)->get();
+        
+        // Ambil data harga live untuk semua aset (untuk autofill harga jual)
+        $assets = Asset::all();
+
+        return view('transactions.sell', compact('myPortfolio', 'wallets', 'assets', 'symbol'));
+    }
+
+public function processSell(Request $request)
+{
+    $request->validate([
+        'wallet_id' => 'required|exists:wallets,id',
+        'asset_symbol' => 'required',
+        'amount' => 'required|numeric|min:0.00000001',
+        'sell_price' => 'required|numeric|min:0',
+        'fee' => 'nullable|numeric|min:0',
+    ]);
+
+    $user = Auth::user();
+
+    return DB::transaction(function () use ($request, $user) {
+        // 1. Cek Kepemilikan Aset
+        $portfolio = Portfolio::where('user_id', $user->id)
+                                ->where('asset_symbol', $request->asset_symbol)
+                                ->first();
+
+        if (!$portfolio || $portfolio->quantity < $request->amount) {
+            return back()->withErrors(['amount' => 'Unit aset tidak mencukupi untuk dijual.'])->withInput();
+        }
+
+        // 2. Hitung Hasil Penjualan
+        $subtotal = $request->amount * $request->sell_price;
+        $feeAmount = $request->fee ?? 0;
+        $netProceeds = $subtotal - $feeAmount; // Hasil bersih (dikurangi fee)
+
+        // 3. Update Dompet (Tambah Saldo)
+        $wallet = Wallet::where('id', $request->wallet_id)->where('user_id', $user->id)->firstOrFail();
+        $wallet->increment('balance', $netProceeds);
+
+        // 4. Update Portfolio (Kurangi Unit)
+        $portfolio->decrement('quantity', $request->amount);
+
+        // 5. Catat Transaksi
+        Transaction::create([
+            'user_id' => $user->id,
+            'wallet_id' => $wallet->id,
+            'type' => 'SELL',
+            'status' => 'approved',
+            'asset_symbol' => $request->asset_symbol,
+            'amount' => $request->amount,
+            'price_per_unit' => $request->sell_price,
+            'amount_cash' => $netProceeds, // Nilai positif karena uang masuk
+            'description' => "Jual " . $request->asset_symbol . " (Fee: " . number_format($feeAmount, 2) . ")",
+            'date' => now(),
+        ]);
+
+        return redirect()->route('portfolio.index')->with('success', 'Penjualan aset berhasil diproses!');
+    });
+}
 
     // ===========================
     // 2. API HELPER (PENTING BUAT JS)

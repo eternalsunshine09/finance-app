@@ -9,9 +9,27 @@ use Illuminate\Support\Facades\Http; // Pastikan ini ada!
 
 class AdminAssetController extends Controller
 {
-    public function index()
+public function index(Request $request)
     {
-        $assets = Asset::orderBy('created_at', 'desc')->get();
+        $query = Asset::query();
+
+        // 1. Fitur Search (Simbol atau Nama)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('symbol', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        // 2. Fitur Filter Kategori
+        if ($request->filled('type') && $request->type !== 'All') {
+            $query->where('type', $request->type);
+        }
+
+        // Urutkan dan Paginate
+        $assets = $query->orderBy('created_at', 'desc')->paginate(10)->withQueryString();
+        
         return view('admin.assets.index', compact('assets'));
     }
 
@@ -24,6 +42,7 @@ class AdminAssetController extends Controller
     {
         $request->validate([
             'symbol'        => 'required|unique:assets,symbol',
+            'logo'          => 'nullable|string',
             'name'          => 'required',
             'type'          => 'required',
             'current_price' => 'required|numeric',
@@ -32,6 +51,7 @@ class AdminAssetController extends Controller
 
         Asset::create([
             'symbol'        => strtoupper($request->symbol),
+            'logo'          => $request->logo,
             'name'          => $request->name,
             'type'          => $request->type,
             'subtype'       => $request->subtype,
@@ -40,6 +60,40 @@ class AdminAssetController extends Controller
         ]);
 
         return redirect()->route('admin.assets.index')->with('success', 'Aset berhasil ditambahkan!');
+    }
+
+    // 3. HALAMAN EDIT (FULL)
+    public function edit($id)
+    {
+        $asset = Asset::findOrFail($id);
+        return view('admin.assets.edit', compact('asset'));
+    }
+
+    // 4. PROSES UPDATE DATA (FULL)
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'symbol'        => 'required|unique:assets,symbol,'.$id, // Ignore unique self
+            'name'          => 'required',
+            'type'          => 'required',
+            'logo'          => 'nullable|string', // String agar muat base64/link panjang
+            'api_id'        => 'nullable|string',
+        ]);
+
+        $asset = Asset::findOrFail($id);
+        
+        $asset->update([
+            'symbol'        => strtoupper($request->symbol),
+            'name'          => $request->name,
+            'type'          => $request->type,
+            'subtype'       => $request->subtype,
+            'logo'          => $request->logo,
+            'api_id'        => $request->api_id,
+            // Harga tidak diupdate disini agar tidak menimpa harga live, 
+            // kecuali user memaksa update harga di form edit (opsional)
+        ]);
+
+        return redirect()->route('admin.assets.index')->with('success', 'Data aset berhasil diperbarui!');
     }
 
     public function updatePrice(Request $request, $id)
@@ -74,9 +128,10 @@ class AdminAssetController extends Controller
 
     // --- 2. SYNC HARGA ASET (HYBRID: COINGECKO + YAHOO) ---
     // Nama method ini HARUS 'syncPrices' agar cocok dengan routes/web.php
-    public function syncPrices()
-    {
-        // Ambil semua aset yang punya API ID
+// 🔥 UPDATE LOGIKA SYNC AGAR MENGAMBIL LOGO JUGA
+public function syncPrices()
+{
+    try {
         $assets = Asset::whereNotNull('api_id')->where('api_id', '!=', '')->get();
         
         if ($assets->isEmpty()) {
@@ -86,64 +141,76 @@ class AdminAssetController extends Controller
         $successCount = 0;
         $failCount = 0;
 
-        foreach ($assets as $asset) {
-            try {
-                $price = null;
-
-                // --- OPSI A: JIKA CRYPTO (Gunakan CoinGecko) ---
-                if ($asset->type == 'Crypto') {
-                    // API ID CoinGecko harus lowercase (misal: bitcoin, ethereum, tether)
-                    $apiId = strtolower($asset->api_id); 
-                    $url = "https://api.coingecko.com/api/v3/simple/price?ids={$apiId}&vs_currencies=usd";
-                    
-                    $response = Http::get($url);
-                    
-                    if ($response->successful()) {
-                        $data = $response->json();
-                        if (isset($data[$apiId]['usd'])) {
-                            $price = $data[$apiId]['usd'];
-                        }
-                    }
-                } 
+        // 1. KUMPULKAN ID CRYPTO UNTUK BATCH UPDATE (Supaya Hemat API Call)
+        // CoinGecko support multiple IDs: bitcoin,ethereum,solana
+        $cryptoAssets = $assets->where('type', 'Crypto');
+        
+        if ($cryptoAssets->count() > 0) {
+            $ids = $cryptoAssets->pluck('api_id')->implode(',');
+            
+            // Gunakan endpoint 'markets' karena menyediakan Image + Price
+            $url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={$ids}&order=market_cap_desc&per_page=250&page=1&sparkline=false";
+            
+            $response = Http::get($url);
+            
+            if ($response->successful()) {
+                $data = $response->json();
                 
-                // --- OPSI B: JIKA SAHAM/STOCK (Gunakan Yahoo Finance) ---
-                // CoinGecko jelek untuk saham, jadi kita alihkan ke Yahoo
-                else {
-                    $yahooSymbol = $asset->api_id;
+                foreach ($data as $coin) {
+                    // Cari aset di DB berdasarkan API ID
+                    $asset = $cryptoAssets->where('api_id', $coin['id'])->first();
                     
-                    // Otomatis tambahkan .JK jika Saham Indo dan belum ada ekstensinya
-                    if ($asset->type == 'Stock' && !str_contains($yahooSymbol, '.') && strlen($yahooSymbol) == 4) {
-                        $yahooSymbol .= '.JK'; 
-                    }
-
-                    $url = "https://query1.finance.yahoo.com/v8/finance/chart/{$yahooSymbol}";
-                    $response = Http::get($url);
-
-                    if ($response->successful()) {
-                        $meta = $response->json()['chart']['result'][0]['meta'] ?? null;
-                        if ($meta && isset($meta['regularMarketPrice'])) {
-                            $price = $meta['regularMarketPrice'];
-                        }
+                    if ($asset) {
+                        // Update Harga & Logo Otomatis
+                        $asset->update([
+                            'current_price' => $coin['current_price'],
+                            'logo' => $coin['image'], // <--- SIMPAN LOGO
+                            'updated_at' => now()
+                        ]);
+                        $successCount++;
                     }
                 }
-
-                // --- SIMPAN JIKA HARGA DITEMUKAN ---
-                if ($price) {
-                    $asset->update([
-                        'current_price' => $price,
-                        'updated_at' => now()
-                    ]);
-                    $successCount++;
-                } else {
-                    $failCount++;
-                }
-
-            } catch (\Exception $e) {
-                $failCount++;
-                continue; // Lanjut ke aset berikutnya jika error
             }
         }
 
-        return back()->with('success', "Sync Selesai! Berhasil: $successCount, Gagal: $failCount");
+        // 2. LOOPING UNTUK SAHAM (Yahoo Finance - Harga Saja)
+        // Logo saham biasanya statis, jadi lebih baik input manual URL-nya
+        $stockAssets = $assets->where('type', '!=', 'Crypto');
+
+        foreach ($stockAssets as $asset) {
+            try {
+                $symbol = $asset->api_id;
+                // Auto add .JK for Indo Stocks
+                if ($asset->type == 'Stock' && !str_contains($symbol, '.') && strlen($symbol) == 4) {
+                    $symbol .= '.JK'; 
+                }
+
+                $url = "https://query1.finance.yahoo.com/v8/finance/chart/{$symbol}";
+                $response = Http::get($url);
+
+                if ($response->successful()) {
+                    $meta = $response->json()['chart']['result'][0]['meta'] ?? null;
+                    if ($meta && isset($meta['regularMarketPrice'])) {
+                        $asset->update([
+                            'current_price' => $meta['regularMarketPrice'],
+                            'updated_at' => now()
+                        ]);
+                        $successCount++;
+                    } else {
+                        $failCount++;
+                    }
+                } else {
+                    $failCount++;
+                }
+            } catch (\Exception $e) {
+                $failCount++;
+            }
+        }
+
+        return back()->with('success', "Sync Selesai! Berhasil: $successCount, Gagal: $failCount. Logo Crypto berhasil diperbarui.");
+
+    } catch (\Exception $e) {
+        return back()->with('error', 'Error: ' . $e->getMessage());
     }
+}
 }

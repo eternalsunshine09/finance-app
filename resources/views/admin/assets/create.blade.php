@@ -4,6 +4,16 @@
 
 @section('content')
 <div class="max-w-3xl mx-auto">
+    {{-- 🔥 TAMBAHKAN INI UNTUK MELIHAT ERRORNYA 🔥 --}}
+    @if ($errors->any())
+    <div class="bg-red-500 text-white p-4 rounded-lg mb-6">
+        <ul class="list-disc ml-5">
+            @foreach ($errors->all() as $error)
+            <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+    @endif
 
     {{-- Header --}}
     <div class="mb-8">
@@ -78,6 +88,27 @@
                 </select>
             </div>
 
+            {{-- Di dalam resources/views/admin/assets/create.blade.php --}}
+
+            {{-- Tambahkan input ini di bawah API ID atau di tempat yang sesuai --}}
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">URL Logo (Opsional)</label>
+                <div class="flex gap-2">
+                    <input type="url" name="logo" placeholder="https://..."
+                        class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:outline-none placeholder-slate-600 transition">
+
+                    {{-- Preview Icon (Visual Only) --}}
+                    <div
+                        class="w-12 h-12 bg-slate-800 border border-slate-600 rounded-xl flex items-center justify-center text-slate-500">
+                        <i class="fas fa-image"></i>
+                    </div>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-1">
+                    Tips: Copy image address dari Google Images/Wikipedia.
+                    <span class="text-indigo-400">Untuk Crypto, logo akan terisi otomatis saat Sync.</span>
+                </p>
+            </div>
+
             {{-- 3. NAMA ASET --}}
             <div>
                 <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Nama Lengkap Aset</label>
@@ -99,9 +130,11 @@
                     {{-- Cheat Sheet Kecil --}}
                     <div class="mt-2 bg-slate-700/50 p-2 rounded-lg text-[10px] text-slate-300 space-y-1">
                         <p><strong class="text-orange-400">Crypto:</strong> Gunakan ID CoinGecko (contoh:
-                            <code>bitcoin</code>, <code>ethereum</code>)</p>
+                            <code>bitcoin</code>, <code>ethereum</code>)
+                        </p>
                         <p><strong class="text-blue-400">Saham Indo:</strong> Kode Emiten (contoh: <code>BBCA</code>,
-                            <code>TLKM</code>)</p>
+                            <code>TLKM</code>)
+                        </p>
                         <p><strong class="text-white">Lainnya:</strong> Kosongkan jika update manual.</p>
                     </div>
                 </div>

@@ -111,7 +111,6 @@
                 </button>
             </div>
 
-            {{-- ... SISA KODE NAVIGASI SAMA SEPERTI SEBELUMNYA ... --}}
 
             {{-- 2. NAVIGASI --}}
             <nav class="flex-1 overflow-y-auto overflow-x-hidden py-6 px-4 space-y-8 no-scrollbar">
@@ -209,6 +208,7 @@
                         Transaksi
                     </div>
                     <ul class="space-y-1">
+                        {{-- Menu Deposit --}}
                         <li>
                             <a href="{{ route('topup') }}"
                                 class="group relative flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 {{ request()->routeIs('topup') ? 'text-emerald-600 bg-emerald-50' : '' }}"
@@ -223,6 +223,7 @@
                             </a>
                         </li>
 
+                        {{-- Menu Withdraw --}}
                         <li>
                             <a href="{{ route('withdraw') }}"
                                 class="group relative flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 {{ request()->routeIs('withdraw') ? 'text-rose-600 bg-rose-50' : '' }}"
@@ -237,6 +238,7 @@
                             </a>
                         </li>
 
+                        {{-- Menu Beli Aset --}}
                         <li>
                             <a href="{{ route('buy') }}"
                                 class="group relative flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 {{ request()->routeIs('buy') ? 'text-blue-600 bg-blue-50' : '' }}"
@@ -251,6 +253,22 @@
                             </a>
                         </li>
 
+                        {{-- 🔥 MENU BARU: JUAL ASET --}}
+                        <li>
+                            <a href="{{ route('sell') }}"
+                                class="group relative flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 {{ request()->routeIs('sell') ? 'text-rose-600 bg-rose-50' : '' }}"
+                                :class="!sidebarOpen ? 'justify-center px-2' : ''">
+                                <svg class="w-6 h-6 shrink-0 {{ request()->routeIs('sell') ? 'text-rose-600' : 'group-hover:text-rose-500' }}"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                        d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span class="whitespace-nowrap transition-opacity duration-300"
+                                    :class="sidebarOpen ? 'opacity-100' : 'opacity-0 hidden w-0'">Jual Aset</span>
+                            </a>
+                        </li>
+
+                        {{-- Menu Riwayat --}}
                         <li>
                             <a href="{{ route('history') }}"
                                 class="group relative flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 {{ request()->routeIs('history') ? 'text-amber-600 bg-amber-50' : '' }}"
