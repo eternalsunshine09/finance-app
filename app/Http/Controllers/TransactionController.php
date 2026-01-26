@@ -339,17 +339,23 @@ public function processSell(Request $request)
     // ===========================
     // 5. FITUR RIWAYAT TRANSAKSI
     // ===========================
-    public function history()
-    {
-        $userId = Auth::id();
-        
-        $transactions = Transaction::where('user_id', $userId)
-                                   ->orderBy('created_at', 'desc')
-                                   ->paginate(10);
+public function history(Request $request)
+{
+    // 1. Fetch Wallets for the Filter Dropdown
+    $wallets = Wallet::where('user_id', Auth::id())->get();
 
-        return view('transactions.history', compact('transactions'));
+    // 2. Fetch Transactions (with Filter logic)
+    $query = Transaction::where('user_id', Auth::id())->with('wallet');
+
+    if ($request->has('wallet_id') && $request->wallet_id != '') {
+        $query->where('wallet_id', $request->wallet_id);
     }
-    // Tambahkan di App/Http/Controllers/TransactionController.php
+
+    $transactions = $query->latest()->paginate(10);
+
+    // 3. Pass BOTH variables ($transactions AND $wallets) to the view
+    return view('transactions.history', compact('transactions', 'wallets'));
+}
 
     public function edit($id)
 {
@@ -366,87 +372,157 @@ public function update(Request $request, $id)
     $request->validate([
         'amount_cash' => 'required|numeric|min:1',
         'date'        => 'required|date',
-        'description' => 'nullable|string'
+        'description' => 'nullable|string|max:255'
     ]);
 
     DB::transaction(function () use ($request, $id) {
-        $transaction = Transaction::where('id', $id)->where('user_id', Auth::id())->lockForUpdate()->firstOrFail();
+        // 1. Ambil Data
+        $transaction = Transaction::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
         
-        // Cek apakah ini transaksi Konversi (BUY/SELL selain Topup/Withdraw)
-        $isExchange = in_array($transaction->type, ['BUY', 'SELL']) && $transaction->asset_symbol == null;
+        // Simpan nilai lama
+        $oldCash = abs($transaction->amount_cash); // Selalu positifkan dulu untuk perhitungan
+        $newCash = $request->amount_cash;
+        $diff = $newCash - $oldCash;
 
-        // JIKA BUKAN KONVERSI (TOPUP/WITHDRAW), BOLEH EDIT NOMINAL
-        if (!$isExchange) {
-            $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
-
-            // Hitung Selisih
-            $oldAmount = abs($transaction->amount_cash); 
-            $newAmount = $request->amount_cash;
-            $difference = $newAmount - $oldAmount; 
-
-            // Update Saldo Wallet
-            if ($transaction->type == 'TOPUP') {
-                $wallet->balance += $difference;
-                $finalAmountRecord = $newAmount; 
-            } 
-            elseif ($transaction->type == 'WITHDRAW') {
-                $wallet->balance -= $difference; 
-                $finalAmountRecord = -$newAmount;
+        // 2. UPDATE SALDO DOMPET
+        if ($transaction->type == 'TOPUP' || $transaction->type == 'SELL') {
+            // Uang Masuk: Jika nominal baru lebih besar, saldo nambah.
+            $wallet->balance += $diff;
+        } else {
+            // Uang Keluar (WITHDRAW / BUY): Jika nominal baru lebih besar, saldo berkurang.
+            // Cek saldo cukup gak kalau nambah pengeluaran
+            if ($diff > 0 && $wallet->balance < $diff) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount_cash' => 'Saldo dompet tidak cukup untuk menambah nominal transaksi ini.'
+                ]);
             }
-            // Logic tambahan untuk BUY/SELL Aset (Saham) jika diperlukan nanti
-            else {
-                $finalAmountRecord = $transaction->amount_cash; // Default tidak berubah
-            }
-
-            if ($wallet->balance < 0) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['amount_cash' => 'Saldo dompet tidak mencukupi untuk perubahan ini.']);
-            }
-
-            $wallet->save();
-            
-            // Update nominal di transaksi
-            $transaction->amount_cash = $finalAmountRecord;
+            $wallet->balance -= $diff;
         }
+        $wallet->save();
+
+        // 3. KHUSUS TRANSAKSI ASET (BUY/SELL) -> UPDATE PORTFOLIO
+        if ($transaction->asset_symbol) {
+            $portfolio = \App\Models\Portfolio::where('user_id', Auth::id())
+                ->where('asset_symbol', $transaction->asset_symbol)
+                ->first();
+
+            if ($portfolio) {
+                // Hitung ulang Average Price secara sederhana
+                // (Ini pendekatan simplifikasi, karena re-calculate avg price yang akurat butuh loop semua history)
+                
+                $totalModalSaatIni = $portfolio->quantity * $portfolio->average_buy_price;
+                
+                if ($transaction->type == 'BUY') {
+                    // Jika dulu beli 1jt, sekarang jadi 1.1jt -> Modal nambah 100rb
+                    $totalModalBaru = $totalModalSaatIni + $diff; 
+                } else {
+                    // SELL tidak mempengaruhi Average Buy Price, jadi aman.
+                    $totalModalBaru = $totalModalSaatIni; 
+                }
+
+                if ($portfolio->quantity > 0) {
+                    $portfolio->average_buy_price = $totalModalBaru / $portfolio->quantity;
+                    $portfolio->save();
+                }
+            }
+        }
+
+        // 4. Update Data Transaksi
+        // Kembalikan tanda negatif untuk pengeluaran
+        $finalAmount = ($transaction->type == 'WITHDRAW' || $transaction->type == 'BUY') ? -$newCash : $newCash;
         
-        // Update Data Umum (Tanggal & Deskripsi) - Berlaku untuk semua tipe
-        $transaction->date = $request->date;
-        $transaction->created_at = $request->date; // Update created_at juga agar urutan di history berubah
+        $transaction->amount_cash = $finalAmount;
+        $transaction->created_at = $request->date; 
         $transaction->description = $request->description;
-        
         $transaction->save();
     });
 
     return redirect()->route('history')->with('success', 'Transaksi berhasil diperbarui.');
 }
 
-        public function destroy($id)
-        {
-            DB::transaction(function () use ($id) {
-                $transaction = Transaction::where('id', $id)->where('user_id', Auth::id())->lockForUpdate()->firstOrFail();
-                $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
+public function destroy($id)
+{
+    DB::transaction(function () use ($id) {
+        // 1. Ambil Data & Lock
+        $transaction = Transaction::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->lockForUpdate()
+            ->firstOrFail();
 
-                // LOGIKA PENGEMBALIAN SALDO:
-                // 1. Jika Hapus "Uang Masuk" (Positif) -> Saldo Wallet akan DIKURANGI.
-                // 2. Jika Hapus "Uang Keluar" (Negatif) -> Saldo Wallet akan DITAMBAH (Refund).
-                // Rumus: Saldo Baru = Saldo Lama - Nominal Transaksi
-                
-                $newBalance = $wallet->balance - $transaction->amount_cash;
+        $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
 
-                // Cek jika saldo tidak cukup (Misal mau hapus TopUp tapi uangnya udah dipake)
-                if ($newBalance < 0) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'error' => 'Gagal hapus! Saldo dompet tidak cukup untuk membatalkan transaksi ini.'
-                    ]);
-                }
+        // 2. KEMBALIKAN SALDO DOMPET (REVERSE WALLET)
+        // Rumus: Saldo Baru = Saldo Lama - (Nominal Transaksi)
+        // Matematika: 
+        // - Jika hapus Topup (+100rb) -> 500rb - 100rb = 400rb (Benar)
+        // - Jika hapus Beli (-100rb)  -> 400rb - (-100rb) = 500rb (Benar, uang balik)
+        
+        $newBalance = $wallet->balance - $transaction->amount_cash;
 
-                $wallet->balance = $newBalance;
-                $wallet->save();
-
-                $transaction->delete();
-            });
-
-            return back()->with('success', 'Transaksi berhasil dihapus dan saldo dikembalikan.');
+        if ($newBalance < 0) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'error' => 'Gagal hapus! Saldo dompet tidak cukup untuk membatalkan transaksi ini (Refund negatif).'
+            ]);
         }
+        $wallet->balance = $newBalance;
+        $wallet->save();
+
+        // 3. KEMBALIKAN UNIT ASET (REVERSE PORTFOLIO) - INI YANG KURANG
+        if ($transaction->asset_symbol && in_array($transaction->type, ['BUY', 'SELL'])) {
+            
+            $portfolio = \App\Models\Portfolio::where('user_id', Auth::id())
+                ->where('asset_symbol', $transaction->asset_symbol)
+                ->first();
+
+            if ($portfolio) {
+                if ($transaction->type == 'BUY') {
+                    // KASUS: Hapus Pembelian
+                    // Aksi: Unit harus DIKURANGI
+                    // Peringatan: Cek apakah sisa unit cukup (jangan sampai minus kalau asetnya sudah dijual duluan)
+                    
+                    if ($portfolio->quantity < $transaction->amount) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'error' => 'Gagal hapus pembelian! Unit aset saat ini lebih sedikit dari yang ingin dihapus (Mungkin sudah dijual?).'
+                        ]);
+                    }
+
+                    // Hitung Average Price Baru (Reverse Engineering)
+                    // Total Nilai Lama = Qty Sekarang * Avg Price Sekarang
+                    // Nilai Yg Dihapus = Qty Trx * Harga Beli Trx
+                    $currentTotalValue = $portfolio->quantity * $portfolio->average_buy_price;
+                    $deletedValue = $transaction->amount * $transaction->price_per_unit;
+                    
+                    $newQty = $portfolio->quantity - $transaction->amount;
+                    $newTotalValue = $currentTotalValue - $deletedValue;
+
+                    $portfolio->quantity = $newQty;
+                    // Hindari pembagian nol
+                    $portfolio->average_buy_price = ($newQty > 0) ? ($newTotalValue / $newQty) : 0;
+
+                } elseif ($transaction->type == 'SELL') {
+                    // KASUS: Hapus Penjualan
+                    // Aksi: Unit harus DIKEMBALIKAN (Ditambah)
+                    
+                    $portfolio->quantity += $transaction->amount;
+                    // Note: Hapus penjualan biasanya tidak mengubah Average Buy Price (karena FIFO/Average), 
+                    // jadi kita hanya mengembalikan unitnya saja.
+                }
+                
+                $portfolio->save();
+            }
+        }
+
+        // 4. Hapus Data Transaksi
+        $transaction->delete();
+    });
+
+    return back()->with('success', 'Transaksi berhasil dihapus, saldo dan aset telah dikembalikan.');
+}
         // ===========================
     // 6. FORM CORPORATE ACTIONS
     // ===========================
