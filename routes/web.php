@@ -12,6 +12,7 @@ use App\Http\Controllers\AdminTransactionController; // Admin Transaction Contro
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PortfolioController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminExchangeRateController;
 
@@ -93,10 +94,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/crypto', [MarketController::class, 'crypto'])->name('crypto');
         Route::get('/commodities', [MarketController::class, 'commodities'])->name('commodities');
         Route::get('/reksadana', [MarketController::class, 'reksadana'])->name('reksadana');
+        Route::get('/market/valas', [App\Http\Controllers\MarketController::class, 'valas'])->name('market.valas');
     });
     
     // Portfolio
     Route::get('/portfolio', [PortfolioController::class, 'index'])->name('portfolio.index');
+
+    
+    // 🔥 Report
+    Route::get('/report', [ReportController::class, 'index'])->name('report.index');
+    Route::get('/report/data', [ReportController::class, 'getChartData'])->name('report.data'); // API untuk Grafik
+    Route::get('/report/export', [ReportController::class, 'exportCsv'])->name('report.export'); // Download CSV
 
     // Internal APIs
     Route::get('/api/price/{symbol}', function ($symbol) {
@@ -106,6 +114,7 @@ Route::middleware(['auth'])->group(function () {
     
     Route::get('/api/chart-data', [DashboardController::class, 'getChartData'])->name('api.chart');
 });
+
 
 // ==========================================
 // ADMIN ROUTES (Middleware & Prefix)

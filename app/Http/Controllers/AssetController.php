@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Asset;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use App\Services\MarketService; // Pastikan Service ini ada
+use App\Services\MarketService; // Pastikan file app/Services/MarketService.php ada
 
 class AssetController extends Controller
 {
@@ -13,7 +13,7 @@ class AssetController extends Controller
 
     /**
      * Dependency Injection MarketService
-     * Agar bisa memanggil fungsi fetchYahooData dan fetchCoinGeckoData
+     * Untuk mengambil data harga real-time dari Yahoo Finance & CoinGecko
      */
     public function __construct(MarketService $marketService)
     {
@@ -21,19 +21,17 @@ class AssetController extends Controller
     }
 
     // =========================================================================
-    // 1. INDEX: MENAMPILKAN DAFTAR ASET (ADMIN)
+    // 1. INDEX: MENAMPILKAN DAFTAR ASET (ADMIN PAGE)
     // =========================================================================
     public function index(Request $request)
     {
-        $query = Asset::query();
-
-        // 1. Get 'type' from URL, default to 'Stock' if missing
+        // 1. Ambil 'type' dari URL, default ke 'Stock' (Saham Indo)
         $type = $request->query('type', 'Stock');
 
-        // 2. Filter assets by type
+        // 2. Query dasar
         $query = Asset::where('type', $type);
 
-        // 3. Optional: Search feature
+        // 3. Fitur Pencarian (Search)
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -42,9 +40,10 @@ class AssetController extends Controller
             });
         }
 
+        // 4. Pagination & Urutan
         $assets = $query->orderBy('symbol', 'asc')->paginate(10);
 
-        // 4. IMPORTANT: Pass 'type' to the view
+        // 5. Return View
         return view('admin.assets.index', compact('assets', 'type'));
     }
 
@@ -53,10 +52,7 @@ class AssetController extends Controller
     // =========================================================================
     public function create(Request $request)
     {
-        // Ambil parameter type dari URL (misal: ?type=Stock)
-        // Default ke 'Stock' jika tidak ada
         $type = $request->query('type', 'Stock');
-        
         return view('admin.assets.create', compact('type'));
     }
 
@@ -65,30 +61,32 @@ class AssetController extends Controller
     // =========================================================================
     public function store(Request $request)
     {
-        // Validasi Input
+        // 1. Validasi Input
         $request->validate([
-            'symbol' => 'required|unique:assets,symbol|max:10|uppercase',
+            'symbol' => 'required|unique:assets,symbol|max:10', // Max 10 chars
             'name'   => 'required|string|max:255',
-            'type'   => 'required|in:Stock,Crypto,Mutual Fund,Gold,Currency',
-            'subtype' => 'nullable|in:RDPU,RDPT,RDS,Campuran',
+            // 🔥 PENTING: Tambahkan 'US Stock' ke dalam validasi 'in:'
+            'type'   => 'required|in:Stock,US Stock,Crypto,Mutual Fund,Gold,Currency',
+            'subtype' => 'nullable|string', // Untuk Reksadana (RDPU/RDS/dll)
             'current_price' => 'required|numeric|min:0',
-            // Gunakan 'string' agar bisa menerima URL panjang atau Base64 Image
-            'logo'   => 'nullable|string', 
-            'api_id' => 'nullable|string', // Opsional: ID untuk CoinGecko
+            'logo'   => 'nullable|string', // Support URL logo
+            'api_id' => 'nullable|string', // Opsional: ID CoinGecko
         ]);
 
-        // Simpan Data
+        // 2. Simpan Data
         Asset::create([
-            'symbol' => strtoupper($request->symbol),
+            'symbol' => strtoupper($request->symbol), // Paksa huruf besar (AAPL)
             'name'   => $request->name,
             'type'   => $request->type,
             'subtype' => $request->type === 'Mutual Fund' ? $request->subtype : null,
             'current_price' => $request->current_price,
             'logo'   => $request->logo,
             'api_id' => $request->api_id ?? null,
+            'change_percent' => 0 // Default 0 saat baru dibuat
         ]);
 
-        return redirect()->route('admin.assets.index')
+        // 3. Redirect
+        return redirect()->route('admin.assets.index', ['type' => $request->type])
             ->with('success', 'Aset berhasil ditambahkan!');
     }
 
@@ -98,9 +96,7 @@ class AssetController extends Controller
     public function edit($id)
     {
         $asset = Asset::findOrFail($id);
-        // Type diambil langsung dari data aset tersebut
-        $type = $asset->type;
-
+        $type = $asset->type; // Ambil tipe langsung dari data aset
         return view('admin.assets.edit', compact('asset', 'type'));
     }
 
@@ -111,33 +107,33 @@ class AssetController extends Controller
     {
         $asset = Asset::findOrFail($id);
 
+        // 1. Validasi
         $request->validate([
-            // Validasi unik, tapi abaikan ID aset ini sendiri
-            'symbol' => ['required', 'max:10', 'uppercase', Rule::unique('assets')->ignore($asset->id)],
+            // Validasi unik kecuali untuk ID diri sendiri
+            'symbol' => ['required', 'max:10', Rule::unique('assets')->ignore($asset->id)],
             'name'   => 'required|string|max:255',
-            'type'   => 'required|in:Stock,Crypto,Mutual Fund,Gold,Currency',
-            'subtype' => 'nullable|in:RDPU,RDPT,RDS,Campuran',
+            'type'   => 'required|in:Stock,US Stock,Crypto,Mutual Fund,Gold,Currency',
             'current_price' => 'required|numeric|min:0',
-            'logo'   => 'nullable|string', // Support Base64
-            'api_id' => 'nullable|string',
+            'logo'   => 'nullable|string',
         ]);
 
+        // 2. Update Database
         $asset->update([
             'symbol' => strtoupper($request->symbol),
             'name'   => $request->name,
             'type'   => $request->type,
-            'subtype' => $request->type === 'Mutual Fund' ? $request->subtype : null,
+            'subtype' => $request->type === 'Mutual Fund' ? $request->subtype : $asset->subtype,
             'current_price' => $request->current_price,
             'logo'   => $request->logo,
-            'api_id' => $request->api_id ?? null,
+            'api_id' => $request->api_id ?? $asset->api_id,
         ]);
 
-        return redirect()->route('admin.assets.index')
+        return redirect()->route('admin.assets.index', ['type' => $asset->type])
             ->with('success', 'Data aset berhasil diperbarui!');
     }
 
     // =========================================================================
-    // 6. UPDATE PRICE: UPDATE HARGA MANUAL (VIA MODAL)
+    // 6. UPDATE PRICE: UPDATE HARGA MANUAL (VIA MODAL ADMIN)
     // =========================================================================
     public function updatePrice(Request $request, $id)
     {
@@ -147,65 +143,70 @@ class AssetController extends Controller
 
         $asset = Asset::findOrFail($id);
         $asset->current_price = $request->current_price;
-        $asset->touch(); // Update timestamp 'updated_at'
         $asset->save();
 
         return back()->with('success', 'Harga ' . $asset->symbol . ' berhasil diupdate!');
     }
 
     // =========================================================================
-    // 7. SYNC PRICES: TOMBOL SYNC (UPDATE HARGA + LOGO OTOMATIS)
+    // 7. SYNC PRICES: TOMBOL SYNC (UPDATE HARGA OTOMATIS)
     // =========================================================================
     public function syncPrices()
     {
-        // Ambil semua aset tipe Stock atau Crypto
-        $assets = Asset::whereIn('type', ['Stock', 'Crypto'])->get();
+        // Ambil semua aset tipe Stock, US Stock, atau Crypto
+        $assets = Asset::whereIn('type', ['Stock', 'US Stock', 'Crypto'])->get();
         $updatedCount = 0;
 
         foreach ($assets as $asset) {
             $marketData = null;
 
-            // --- A. LOGIKA CRYPTO (COINGECKO) ---
+            // --- A. CRYPTO (CoinGecko) ---
             if ($asset->type == 'Crypto') {
-                // Prioritas 1: Gunakan kolom 'api_id' (misal: 'bitcoin')
-                // Prioritas 2: Gunakan 'name' (misal: 'Bitcoin')
-                $searchId = $asset->api_id ?: $asset->name; 
-                
-                // Ambil harga & logo dari CoinGecko
+                // Prioritas: api_id -> name (lowercase)
+                $searchId = $asset->api_id ?: strtolower($asset->name); 
                 $marketData = $this->marketService->fetchCoinGeckoData($searchId);
             } 
             
-            // --- B. LOGIKA SAHAM (YAHOO FINANCE) ---
+            // --- B. SAHAM INDONESIA (Yahoo: .JK) ---
             elseif ($asset->type == 'Stock') {
                 $symbol = $asset->symbol;
-                
-                // Tambahkan suffix .JK untuk saham Indonesia jika belum ada
-                // Contoh: BBCA -> BBCA.JK
+                // Tambahkan .JK jika belum ada
                 if (!str_contains($symbol, '.')) {
                     $symbol .= '.JK';
                 }
-                
-                // Ambil harga dari Yahoo
                 $marketData = $this->marketService->fetchYahooData($symbol);
             }
 
-            // --- C. PROSES SIMPAN KE DATABASE ---
+            // --- C. SAHAM AMERIKA (Yahoo: Polos) ---
+            // 🔥 FITUR BARU: Sync Harga US Stock 🔥
+            elseif ($asset->type == 'US Stock') {
+                $symbol = $asset->symbol; // Contoh: AAPL, TSLA (Tanpa suffix)
+                $marketData = $this->marketService->fetchYahooData($symbol);
+            }
+
+            // --- D. EMAS (GOLD) - KHUSUS PEGADAIAN/ANTAM ---
+            // Jika simbolnya 'GOLD', kita ambil harga dunia konversi IDR
+            elseif ($asset->type == 'Gold' && strtoupper($asset->symbol) == 'GOLD') {
+                $marketData = $this->marketService->getGoldPriceIdr('1d');
+            }
+
+            // --- E. PROSES SIMPAN ---
             if ($marketData && $marketData['success']) {
                 $asset->current_price = $marketData['price'];
+                $asset->change_percent = $marketData['change_percent'] ?? 0;
                 
-                // Fitur Auto-Logo (Khusus Crypto):
-                // Jika aset belum punya logo, dan API memberikan logo, simpan logonya.
+                // Auto-Logo Khusus Crypto (Jika kosong)
                 if ($asset->type == 'Crypto' && !empty($marketData['logo']) && empty($asset->logo)) {
                     $asset->logo = $marketData['logo'];
                 }
 
-                $asset->touch(); // Update timestamp 'updated_at'
+                $asset->touch(); // Update timestamp
                 $asset->save();
                 $updatedCount++;
             }
         }
 
-        return back()->with('success', "Berhasil sinkronisasi {$updatedCount} aset (Harga & Logo).");
+        return back()->with('success', "Berhasil sinkronisasi harga untuk {$updatedCount} aset.");
     }
 
     // =========================================================================
@@ -214,7 +215,10 @@ class AssetController extends Controller
     public function destroy($id)
     {
         $asset = Asset::findOrFail($id);
+        $type = $asset->type; // Simpan tipe untuk redirect
         $asset->delete();
-        return back()->with('success', 'Aset berhasil dihapus.');
+        
+        return redirect()->route('admin.assets.index', ['type' => $type])
+                         ->with('success', 'Aset berhasil dihapus.');
     }
 }

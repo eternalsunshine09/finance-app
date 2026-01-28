@@ -5,15 +5,18 @@
 $formView = match($type) {
 'Mutual Fund' => 'mutual_fund',
 'Crypto' => 'crypto',
+'US Stock' => 'us_stock', // 🔥 TAMBAHAN BARU
+'Gold' => 'gold',
 default => 'stock',
 };
 
 // Label Judul (Biar rapi di header)
 $labelMap = [
-'Stock' => 'Saham',
+'Stock' => 'Saham Indonesia',
+'US Stock' => 'Saham Amerika', // 🔥 TAMBAHAN BARU
 'Mutual Fund' => 'Reksadana',
 'Crypto' => 'Crypto Asset',
-'Gold' => 'Emas',
+'Gold' => 'Emas & Komoditas',
 'Currency' => 'Valas'
 ];
 $label = $labelMap[$type] ?? $type;

@@ -98,6 +98,11 @@
                                 Saham Indonesia
                             </a>
 
+                            <a href="{{ route('admin.assets.index', ['type' => 'US Stock']) }}"
+                                class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                🗽 Saham Amerika
+                            </a>
+
                             {{-- Menu Reksadana --}}
                             <a href="{{ route('admin.assets.index', ['type' => 'Mutual Fund']) }}"
                                 class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">

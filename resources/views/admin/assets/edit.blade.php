@@ -4,11 +4,13 @@
 $formView = match($type) {
 'Mutual Fund' => 'mutual_fund',
 'Crypto' => 'crypto',
+'US Stock' => 'us_stock', // 🔥 TAMBAHAN BARU
 default => 'stock',
 };
 
 $labelMap = [
-'Stock' => 'Saham',
+'Stock' => 'Saham Indonesia',
+'US Stock' => 'Saham Amerika', // 🔥 TAMBAHAN BARU
 'Mutual Fund' => 'Reksadana',
 'Crypto' => 'Crypto Asset',
 'Gold' => 'Emas',
