@@ -14,7 +14,7 @@
         @csrf
         <button type="submit"
             class="bg-black hover:bg-gray-800 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-sm">
-            <svg class="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
                 </path>
@@ -26,6 +26,7 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
+    {{-- FORM INPUT --}}
     <div class="lg:col-span-1">
         <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm sticky top-6">
             <h3 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -40,40 +41,40 @@
 
             <form action="{{ route('admin.exchange-rates.store') }}" method="POST" class="space-y-5">
                 @csrf
-
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Kode Mata
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Kode Mata
                         Uang</label>
                     <div class="relative">
                         <input type="text" name="currency_code" placeholder="USD"
-                            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 font-bold text-lg focus:border-black focus:ring-black focus:outline-none uppercase placeholder-gray-400"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-900 font-bold text-lg focus:bg-white focus:border-black focus:ring-1 focus:ring-black outline-none uppercase placeholder-gray-400 transition"
                             required maxlength="3">
                         <div
-                            class="absolute right-4 top-4 text-xs font-semibold text-gray-400 bg-gray-200 px-2 py-0.5 rounded">
-                            ISO 3 CHAR</div>
+                            class="absolute right-4 top-4 text-[10px] font-bold text-gray-400 bg-white border border-gray-200 px-2 py-0.5 rounded">
+                            ISO 3</div>
                     </div>
-                    <p class="text-[10px] text-gray-400 mt-2">Contoh: USD, EUR, JPY, SGD.</p>
+                    <p class="text-[10px] text-gray-400 mt-2 ml-1">Contoh: USD, EUR, JPY, SGD.</p>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Rate ke
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Rate ke
                         IDR</label>
                     <div class="relative">
                         <span class="absolute left-4 top-3.5 text-gray-400 font-bold text-sm">Rp</span>
                         <input type="number" name="rate" placeholder="0"
-                            class="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 pl-10 text-gray-900 font-mono text-lg focus:border-black focus:ring-black focus:outline-none placeholder-gray-400"
+                            class="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 pl-10 text-gray-900 font-mono text-lg focus:bg-white focus:border-black focus:ring-1 focus:ring-black outline-none placeholder-gray-400 transition"
                             required step="0.01">
                     </div>
                 </div>
 
                 <button type="submit"
-                    class="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-lg shadow-sm transition transform active:scale-95 text-sm">
+                    class="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-lg shadow-md transition transform active:scale-95 text-sm">
                     Simpan Perubahan
                 </button>
             </form>
         </div>
     </div>
 
+    {{-- LIST TABLE --}}
     <div class="lg:col-span-2">
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
@@ -92,15 +93,15 @@
                         <tr class="hover:bg-gray-50 transition group">
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-4">
+                                    {{-- Flag Icon using FlagCDN --}}
                                     <div
-                                        class="w-10 h-6 overflow-hidden rounded shadow-sm border border-gray-100 bg-gray-200">
+                                        class="w-10 h-7 overflow-hidden rounded shadow-sm border border-gray-100 bg-gray-100 flex items-center justify-center">
                                         <img src="https://flagcdn.com/w40/{{ strtolower(substr($rate->from_currency, 0, 2)) }}.png"
-                                            class="w-full h-full object-cover" onerror="this.style.display='none'">
+                                            class="w-full h-full object-cover" alt="{{ $rate->from_currency }}"
+                                            onerror="this.style.display='none'">
                                     </div>
-                                    <div>
-                                        <span
-                                            class="block font-bold text-gray-900 text-base tracking-wide">{{ $rate->from_currency }}</span>
-                                    </div>
+                                    <span
+                                        class="block font-bold text-gray-900 text-base tracking-wide">{{ $rate->from_currency }}</span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-right">
@@ -110,16 +111,16 @@
                                     Rp {{ number_format($rate->rate, 0, ',', '.') }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-center text-xs text-gray-500">
-                                {{ $rate->updated_at->diffForHumans() }}
+                            <td class="px-6 py-4 text-center text-xs text-gray-500 font-mono">
+                                {{ $rate->updated_at->format('d M H:i') }}
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <form action="{{ route('admin.exchange-rates.destroy', $rate->from_currency) }}"
                                     method="POST"
                                     onsubmit="return confirm('Hapus mata uang {{ $rate->from_currency }}?')">
                                     @csrf @method('DELETE')
-                                    <button
-                                        class="w-8 h-8 rounded-md flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-600 transition"
+                                    <button type="submit"
+                                        class="w-8 h-8 rounded-md flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-100 transition"
                                         title="Hapus">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -138,7 +139,7 @@
                                         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
                                             </path>
                                         </svg>
                                     </div>

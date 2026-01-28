@@ -4,25 +4,28 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TransactionController;
-use App\Http\Controllers\MarketController; // <- Tambahkan ini
-use App\Http\Controllers\AssetController;
+use App\Http\Controllers\MarketController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\AdminDashboardController;
-use App\Http\Controllers\AdminAssetController;
-use App\Http\Controllers\AdminTransactionController;
+use App\Http\Controllers\AssetController; // Admin Asset Controller
+use App\Http\Controllers\AdminTransactionController; // Admin Transaction Controller
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PortfolioController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AdminExchangeRateController;
 
-// Public Routes
+// ==========================================
+// PUBLIC ROUTES
+// ==========================================
 Route::get('/', function () {
     $assets = \App\Models\Asset::take(5)->get(); 
     return view('welcome', compact('assets'));
 })->name('welcome');
 
-// Guest Routes
+// ==========================================
+// GUEST ROUTES (Login/Register)
+// ==========================================
 Route::middleware(['guest'])->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -30,9 +33,12 @@ Route::middleware(['guest'])->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('register.process');
 });
 
-// Auth Member Routes
+// ==========================================
+// MEMBER ROUTES (User Dashboard & Actions)
+// ==========================================
 Route::middleware(['auth'])->group(function () {
     
+    // Dashboard & Auth
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -41,7 +47,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    // Transactions
+    // Transactions (Topup, Withdraw, Buy, Sell)
     Route::get('/topup', [TransactionController::class, 'showTopUpForm'])->name('topup');
     Route::post('/topup', [TransactionController::class, 'topUp'])->name('topup.process');
     Route::get('/withdraw', [TransactionController::class, 'showWithdrawForm'])->name('withdraw');
@@ -50,20 +56,22 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/buy', [TransactionController::class, 'processBuy'])->name('buy.process');
     Route::get('/sell/{symbol?}', [TransactionController::class, 'sell'])->name('sell');
     Route::post('/sell/process', [TransactionController::class, 'processSell'])->name('sell.process');
+    
+    // Transaction History
     Route::get('/history', [TransactionController::class, 'history'])->name('history');
     Route::get('/transactions/{id}/edit', [TransactionController::class, 'edit'])->name('transactions.edit');
     Route::put('/transactions/{id}', [TransactionController::class, 'update'])->name('transactions.update');
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
-    // Menu Form Corporate Action
-    Route::get('/transactions/dividend-cash', [TransactionController::class, 'formDividendCash'])->name('transactions.dividend.cash');
-    Route::get('/transactions/dividend-unit', [TransactionController::class, 'formDividendUnit'])->name('transactions.dividend.unit');
-    Route::get('/transactions/stock-split', [TransactionController::class, 'formStockSplit'])->name('transactions.stocksplit');
-    Route::get('/transactions/right-issue', [TransactionController::class, 'formRightIssue'])->name('transactions.rightissue');
-    Route::get('/transactions/bonus', [TransactionController::class, 'formBonus'])->name('transactions.bonus'); // Logika mirip Dividend Unit
-
-    // Proses Submit
-    Route::post('/transactions/process-corporate-action', [TransactionController::class, 'processCorporateAction'])->name('transactions.process_ca');
+    // Corporate Actions
+    Route::prefix('transactions')->name('transactions.')->group(function() {
+        Route::get('/dividend-cash', [TransactionController::class, 'formDividendCash'])->name('dividend.cash');
+        Route::get('/dividend-unit', [TransactionController::class, 'formDividendUnit'])->name('dividend.unit');
+        Route::get('/stock-split', [TransactionController::class, 'formStockSplit'])->name('stocksplit');
+        Route::get('/right-issue', [TransactionController::class, 'formRightIssue'])->name('rightissue');
+        Route::get('/bonus', [TransactionController::class, 'formBonus'])->name('bonus');
+        Route::post('/process-corporate-action', [TransactionController::class, 'processCorporateAction'])->name('process_ca');
+    });
 
     // Exchange
     Route::get('/exchange', [ExchangeController::class, 'index'])->name('exchange.index');
@@ -72,78 +80,70 @@ Route::middleware(['auth'])->group(function () {
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet', [WalletController::class, 'store'])->name('wallet.store');
-    Route::get('/wallet/history', [WalletController::class, 'history'])->name('wallet.history');
+    // Route::get('/wallet/history', [WalletController::class, 'history'])->name('wallet.history'); // Removed as discussed
     Route::get('/wallet/{id}', [WalletController::class, 'show'])->name('wallet.show');
     Route::get('/wallet/{id}/edit', [WalletController::class, 'edit'])->name('wallet.edit');
     Route::put('/wallet/{id}', [WalletController::class, 'update'])->name('wallet.update');
     Route::delete('/wallet/{id}', [WalletController::class, 'destroy'])->name('wallet.destroy');
 
-    // Market Routes
-    Route::middleware(['auth', 'verified'])->group(function () {
-        // Indonesia Market
-        Route::get('/market/indonesia', [MarketController::class, 'index'])
-            ->name('market.index');
-        
-        // US Market  
-        Route::get('/market/us', [MarketController::class, 'us'])
-            ->name('market.us');
-        
-        // Crypto Market
-        Route::get('/market/crypto', [MarketController::class, 'crypto'])
-            ->name('market.crypto');
-        
-        // Commodities Market
-        Route::get('/market/commodities', [MarketController::class, 'commodities'])
-            ->name('market.commodities');
-        
-        // Reksadana Market
-        Route::get('/market/reksadana', [MarketController::class, 'reksadana'])->name('market.reksadana');
+    // Market Routes (Verified Only)
+    Route::middleware(['verified'])->name('market.')->prefix('market')->group(function () {
+        Route::get('/indonesia', [MarketController::class, 'index'])->name('index');
+        Route::get('/us', [MarketController::class, 'us'])->name('us');
+        Route::get('/crypto', [MarketController::class, 'crypto'])->name('crypto');
+        Route::get('/commodities', [MarketController::class, 'commodities'])->name('commodities');
+        Route::get('/reksadana', [MarketController::class, 'reksadana'])->name('reksadana');
     });
     
     // Portfolio
     Route::get('/portfolio', [PortfolioController::class, 'index'])->name('portfolio.index');
 
-    // API
+    // Internal APIs
     Route::get('/api/price/{symbol}', function ($symbol) {
         $asset = \App\Models\Asset::where('symbol', $symbol)->first();
-        return response()->json([
-            'price' => $asset ? $asset->current_price : 0
-        ]);
+        return response()->json(['price' => $asset ? $asset->current_price : 0]);
     })->name('api.price');
     
     Route::get('/api/chart-data', [DashboardController::class, 'getChartData'])->name('api.chart');
 });
 
-// ====== ADMIN ROUTES ======
-// Note: Untuk admin assets, kita tetap gunakan AssetController khusus admin
-Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
-    
+// ==========================================
+// ADMIN ROUTES (Middleware & Prefix)
+// ==========================================
+Route::middleware(['auth', 'role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+    // 1. DASHBOARD
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+
+    // 2. USER MANAGEMENT
     Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
     Route::get('/users/{id}', [AdminUserController::class, 'show'])->name('users.show');
 
-    // ====== ADMIN ASSETS (CRUD) ======
-    // Pastikan ini mengarah ke AssetController yang kita buat untuk admin
-    Route::get('/assets', [AssetController::class, 'index'])->name('assets.index');
-    Route::get('/assets/create', [AssetController::class, 'create'])->name('assets.create');
-    Route::post('/assets', [AssetController::class, 'store'])->name('assets.store');
-    Route::get('/assets/{id}/edit', [AssetController::class, 'edit'])->name('assets.edit');
-    Route::put('/assets/{id}', [AssetController::class, 'update'])->name('assets.update');
-    Route::patch('/assets/{id}/price', [AssetController::class, 'updatePrice'])->name('assets.updatePrice');
-    Route::post('/assets/sync-crypto', [AssetController::class, 'syncCryptoPrices'])->name('assets.syncCrypto');
-    Route::post('/assets/sync-all', [AssetController::class, 'syncAllPrices'])->name('assets.syncAll');
-    Route::delete('/assets/{id}', [AssetController::class, 'destroy'])->name('assets.destroy');
-    // Existing resource route likely looks like this:
-    Route::resource('assets', AssetController::class);
+    // 3. MASTER ASSETS (CRUD + Custom Actions)
+    Route::prefix('assets')->name('assets.')->group(function() {
+        // List Assets
+        Route::get('/', [AssetController::class, 'index'])->name('index');
+        
+        // Create Asset
+        Route::get('/create', [AssetController::class, 'create'])->name('create');
+        Route::post('/', [AssetController::class, 'store'])->name('store');
+        
+        // Edit Asset
+        Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [AssetController::class, 'update'])->name('update');
+        
+        // Delete Asset
+        Route::delete('/{id}', [AssetController::class, 'destroy'])->name('destroy');
 
-    // === ADD THIS LINE ===
-    Route::post('assets/sync', [AssetController::class, 'syncPrices'])->name('assets.sync');
+        // Custom Actions (Update Price & Sync)
+        Route::post('/{id}/update-price', [AssetController::class, 'updatePrice'])->name('update_price'); 
+        Route::post('/sync', [AssetController::class, 'syncPrices'])->name('sync'); 
+    });
 
-    // Exchange Rates (tambahkan jika perlu)
-    Route::post('/exchange-rate/update', [AssetController::class, 'updateRate'])->name('exchange.update');
-    Route::post('/exchange-rate/sync-api', [AssetController::class, 'syncRateAPI'])->name('exchange.syncApi');
-
-    // Admin Exchange Rates (jika ada controller terpisah)
+    // 4. EXCHANGE RATES MANAGEMENT
     Route::prefix('exchange-rates')->name('exchange-rates.')->group(function () {
         Route::get('/', [AdminExchangeRateController::class, 'index'])->name('index');
         Route::post('/', [AdminExchangeRateController::class, 'store'])->name('store');
@@ -151,13 +151,17 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
         Route::delete('/{currency}', [AdminExchangeRateController::class, 'destroy'])->name('destroy');
     });
 
-    // Transactions
-    Route::get('/transactions', [AdminTransactionController::class, 'index'])->name('transactions.index');
-    Route::patch('/transactions/{id}/approve', [AdminTransactionController::class, 'approve'])->name('transactions.approve');
-    Route::patch('/transactions/{id}/reject', [AdminTransactionController::class, 'reject'])->name('transactions.reject');
+    // 5. TRANSACTION APPROVALS (Top Up / Buy / Sell) - FIXING THE ERROR HERE
+    Route::prefix('transactions')->name('transactions.')->group(function() {
+        Route::get('/', [AdminTransactionController::class, 'index'])->name('index'); // This defines admin.transactions.index
+        Route::patch('/{id}/approve', [AdminTransactionController::class, 'approve'])->name('approve');
+        Route::patch('/{id}/reject', [AdminTransactionController::class, 'reject'])->name('reject');
+    });
 
-    // Withdrawals
-    Route::get('/withdrawals', [AdminTransactionController::class, 'indexWithdrawals'])->name('withdrawals.index');
-    Route::patch('/withdrawals/{id}/approve', [AdminTransactionController::class, 'approveWithdraw'])->name('withdrawals.approve');
-    Route::patch('/withdrawals/{id}/reject', [AdminTransactionController::class, 'rejectWithdraw'])->name('withdrawals.reject');
+    // 6. WITHDRAWAL APPROVALS
+    Route::prefix('withdrawals')->name('withdrawals.')->group(function() {
+        Route::get('/', [AdminTransactionController::class, 'indexWithdrawals'])->name('index');
+        Route::patch('/{id}/approve', [AdminTransactionController::class, 'approveWithdraw'])->name('approve');
+        Route::patch('/{id}/reject', [AdminTransactionController::class, 'rejectWithdraw'])->name('reject');
+    });
 });

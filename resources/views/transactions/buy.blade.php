@@ -259,24 +259,48 @@ const currencyFlag = document.getElementById('currencyFlag');
 const currencyLabel = document.getElementById('currencyLabel');
 const feeCurrencyLabel = document.getElementById('feeCurrencyLabel');
 
-// 1. Logic Pilih Aset
+// ---------------------------------------------------------
+// 1. AUTO-SELECT ASSET DARI URL PARAMETER (FIX UTAMA)
+// ---------------------------------------------------------
+document.addEventListener('DOMContentLoaded', function() {
+    // Ambil parameter 'symbol' dari URL (misal: ?symbol=BBCA)
+    const urlParams = new URLSearchParams(window.location.search);
+    const symbolParam = urlParams.get('symbol');
+
+    if (symbolParam) {
+        // Cari option yang value-nya sama dengan symbol
+        // Kita loop karena value option mungkin formatnya beda, tapi di sini value="{{ $asset->symbol }}"
+        for (let i = 0; i < assetSelect.options.length; i++) {
+            if (assetSelect.options[i].value === symbolParam) {
+                assetSelect.selectedIndex = i;
+                // Trigger event change manual agar harga terisi otomatis
+                assetSelect.dispatchEvent(new Event('change'));
+                break;
+            }
+        }
+    }
+});
+
+// 2. Logic Pilih Aset
 assetSelect.addEventListener('change', function() {
     const option = this.options[this.selectedIndex];
     const type = option.getAttribute('data-type');
     const price = option.getAttribute('data-price');
 
     // Set Currency Label ($/Rp)
-    const symbolCurrency = (type === 'Crypto') ? '$' : 'Rp';
+    const symbolCurrency = (type === 'Crypto' || type === 'US Stock') ? '$' : 'Rp';
     currencyLabel.innerText = symbolCurrency;
     feeCurrencyLabel.innerText = symbolCurrency;
 
     // Auto isi harga jika ada
-    if (price && price > 0) buyPriceInput.value = price;
+    if (price && price > 0) {
+        buyPriceInput.value = price;
+    }
 
     calculate();
 });
 
-// 2. Kalkulasi Total
+// 3. Kalkulasi Total
 function calculate() {
     const price = parseFloat(buyPriceInput.value) || 0;
     const amount = parseFloat(amountInput.value) || 0;
@@ -287,8 +311,15 @@ function calculate() {
 
     // Ambil Data Wallet
     const walletOption = walletSelect.options[walletSelect.selectedIndex];
-    const balance = walletOption && !walletOption.disabled ? parseFloat(walletOption.getAttribute('data-balance')) : 0;
-    const currency = walletOption ? walletOption.getAttribute('data-currency') : 'IDR';
+
+    // Default jika wallet belum dipilih
+    let balance = 0;
+    let currency = 'IDR';
+
+    if (walletOption && !walletOption.disabled) {
+        balance = parseFloat(walletOption.getAttribute('data-balance'));
+        currency = walletOption.getAttribute('data-currency');
+    }
 
     const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'id-ID', {
         style: 'currency',
@@ -303,23 +334,25 @@ function calculate() {
     summaryFee.innerText = "+ " + formatter.format(fee);
     totalDisplay.innerText = formatter.format(total);
 
-    // Validasi Saldo
-    if (total > balance) {
-        insufficientBalanceMsg.classList.remove('hidden');
-        submitBtn.disabled = true;
-        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-        totalDisplay.classList.add('text-red-400');
-        totalDisplay.classList.remove('text-white');
-    } else {
-        insufficientBalanceMsg.classList.add('hidden');
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-        totalDisplay.classList.remove('text-red-400');
-        totalDisplay.classList.add('text-white');
+    // Validasi Saldo (Hanya jika wallet sudah dipilih)
+    if (walletOption && !walletOption.disabled) {
+        if (total > balance) {
+            insufficientBalanceMsg.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            totalDisplay.classList.add('text-red-400');
+            totalDisplay.classList.remove('text-white');
+        } else {
+            insufficientBalanceMsg.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            totalDisplay.classList.remove('text-red-400');
+            totalDisplay.classList.add('text-white');
+        }
     }
 }
 
-// 3. Update Wallet Info
+// 4. Update Wallet Info
 walletSelect.addEventListener('change', function() {
     const option = this.options[this.selectedIndex];
     if (option && !option.disabled) {

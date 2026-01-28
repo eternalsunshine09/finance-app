@@ -9,8 +9,7 @@ return new class extends Migration
     public function up()
     {
         Schema::table('assets', function (Blueprint $table) {
-            // ...
-            $table->string('subtype')->nullable()->after('type');
+            $table->string('subtype')->nullable()->after('type'); // Kolom untuk RDPU, RDPT, dll
         });
     }
 

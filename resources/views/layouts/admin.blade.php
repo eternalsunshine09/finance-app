@@ -9,17 +9,16 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
     body {
         font-family: 'Inter', sans-serif;
         background-color: #f9fafb;
-        /* Abu sangat muda */
         color: #111827;
-        /* Hitam pekat */
     }
 
-    /* Scrollbar Minimalis */
+    /* Custom Scrollbar */
     ::-webkit-scrollbar {
         width: 6px;
     }
@@ -49,6 +48,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
 
+                {{-- Logo Area --}}
                 <div class="flex items-center space-x-3">
                     <a href="{{ route('admin.dashboard') }}" class="flex items-center space-x-3 no-underline group">
                         <div
@@ -63,18 +63,21 @@
                     </a>
                 </div>
 
+                {{-- Desktop Navigation --}}
                 <div class="hidden md:flex items-center space-x-1">
 
+                    {{-- Dashboard Link --}}
                     <a href="{{ route('admin.dashboard') }}"
                         class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200
                         {{ request()->routeIs('admin.dashboard') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
                         Dashboard
                     </a>
 
+                    {{-- Master Data Dropdown (UPDATED STRUKTUR) --}}
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open"
                             class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center space-x-1
-                            {{ request()->routeIs('admin.assets.*') || request()->routeIs('admin.exchange-rates.*') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
+                            {{ request()->routeIs('admin.assets.*') ? 'bg-gray-100 text-black' : 'text-gray-600 hover:text-black hover:bg-gray-50' }}">
                             <span>Master Data</span>
                             <svg class="w-4 h-4 transition-transform duration-200" :class="open ? 'rotate-180' : ''"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,31 +89,48 @@
                         <div x-show="open" @click.away="open = false" x-cloak
                             x-transition:enter="transition ease-out duration-100"
                             x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                            class="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-xl z-50 py-1">
+                            class="absolute left-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-2">
 
-                            <a href="{{ route('admin.assets.index') }}"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
-                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                                    </path>
-                                </svg>
-                                Aset Investasi
+                            {{-- Menu Saham --}}
+                            <a href="{{ route('admin.assets.index', ['type' => 'Stock']) }}"
+                                class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <span class="w-6 text-center mr-2">🏢</span>
+                                Saham Indonesia
                             </a>
+
+                            {{-- Menu Reksadana --}}
+                            <a href="{{ route('admin.assets.index', ['type' => 'Mutual Fund']) }}"
+                                class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <span class="w-6 text-center mr-2">📈</span>
+                                Reksadana
+                            </a>
+
+                            {{-- Menu Crypto --}}
+                            <a href="{{ route('admin.assets.index', ['type' => 'Crypto']) }}"
+                                class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <span class="w-6 text-center mr-2">₿</span>
+                                Crypto Assets
+                            </a>
+
+                            {{-- Menu Emas --}}
+                            <a href="{{ route('admin.assets.index', ['type' => 'Gold']) }}"
+                                class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <span class="w-6 text-center mr-2">🥇</span>
+                                Emas & Komoditas
+                            </a>
+
+                            <div class="border-t border-gray-100 my-1"></div>
+
+                            {{-- Menu Kurs Valas --}}
                             <a href="{{ route('admin.exchange-rates.index') }}"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
-                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                                    </path>
-                                </svg>
+                                class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
+                                <span class="w-6 text-center mr-2">💱</span>
                                 Kurs Valas
                             </a>
                         </div>
                     </div>
 
+                    {{-- Approval Dropdown --}}
                     <div class="relative" x-data="{ open: false }">
                         <button @click="open = !open"
                             class="px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center space-x-1
@@ -129,21 +149,11 @@
                             class="absolute left-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-xl z-50 py-1">
 
                             <a href="{{ route('admin.transactions.index') }}"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
-                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-                                </svg>
+                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">
                                 Data Top Up
                             </a>
                             <a href="{{ route('admin.withdrawals.index') }}"
-                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black group">
-                                <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-black" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-                                </svg>
+                                class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">
                                 Data Withdraw
                             </a>
                         </div>
@@ -157,6 +167,7 @@
 
                 </div>
 
+                {{-- User Profile Area --}}
                 <div class="flex items-center space-x-4">
                     <div class="hidden md:block text-xs font-medium text-gray-400 font-mono" id="currentDate"></div>
 
@@ -181,11 +192,6 @@
                                     @csrf
                                     <button type="submit"
                                         class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium flex items-center">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
-                                            </path>
-                                        </svg>
                                         Keluar
                                     </button>
                                 </form>
@@ -193,6 +199,7 @@
                         </div>
                     </div>
 
+                    {{-- Mobile Menu Button --}}
                     <div class="md:hidden">
                         <button @click="mobileOpen = !mobileOpen" x-data="{ mobileOpen: false }"
                             class="text-gray-600 hover:text-black">
@@ -206,26 +213,31 @@
             </div>
         </div>
 
+        {{-- Mobile Menu --}}
         <div class="md:hidden border-t border-gray-200 bg-white" x-data="{ mobileOpen: false }" x-show="mobileOpen"
             @click.away="mobileOpen = false" style="display: none;">
             <div class="px-2 pt-2 pb-3 space-y-1">
                 <a href="{{ route('admin.dashboard') }}"
                     class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Dashboard</a>
-                <a href="{{ route('admin.assets.index') }}"
-                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Master
-                    Aset</a>
-                <a href="{{ route('admin.transactions.index') }}"
-                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Approval Top
-                    Up</a>
+
+                {{-- Mobile Assets Menu --}}
+                <div class="block px-3 py-2 text-base font-medium text-gray-900 border-b border-gray-100 pb-2 mb-2">
+                    Master Data</div>
+                <a href="{{ route('admin.assets.index', ['type' => 'Stock']) }}"
+                    class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 pl-6">Saham
+                    Indonesia</a>
+                <a href="{{ route('admin.assets.index', ['type' => 'Mutual Fund']) }}"
+                    class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 pl-6">Reksadana</a>
+                <a href="{{ route('admin.assets.index', ['type' => 'Crypto']) }}"
+                    class="block px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 pl-6">Crypto</a>
+
                 <a href="{{ route('admin.users.index') }}"
-                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50">Kelola
-                    Pengguna</a>
+                    class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-50 mt-2">Pengguna</a>
             </div>
         </div>
     </nav>
 
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
         @hasSection('header')
         <div class="mb-8">
             <h1 class="text-2xl font-bold text-gray-900 tracking-tight">@yield('header')</h1>
@@ -233,7 +245,7 @@
         </div>
         @endif
 
-        {{-- Notifikasi --}}
+        {{-- Notifications --}}
         @if(session('success'))
         <div
             class="bg-white border-l-4 border-black text-gray-700 px-4 py-3 shadow-sm mb-6 flex items-center gap-3 text-sm rounded-r-md">

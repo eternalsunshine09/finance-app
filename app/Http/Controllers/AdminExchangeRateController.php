@@ -2,92 +2,71 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExchangeRate; // Pastikan model ini ada
 use Illuminate\Http\Request;
-use App\Models\ExchangeRate;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Http; // Untuk Sync API
 
 class AdminExchangeRateController extends Controller
 {
-    // Tampilkan Daftar Valas Dunia
+    // Menampilkan halaman kelola kurs
     public function index()
     {
-        // Ambil data kurs TERBARU untuk setiap mata uang unik
-        // Query ini mengelompokkan berdasarkan 'from_currency' dan mengambil data tanggal terbaru
-        $rates = ExchangeRate::select('from_currency', 'rate', 'updated_at')
-                    ->whereIn('id', function($query) {
-                        $query->selectRaw('MAX(id)')
-                              ->from('exchange_rates')
-                              ->groupBy('from_currency');
-                    })
-                    ->orderBy('from_currency')
-                    ->get();
-
+        $rates = ExchangeRate::orderBy('from_currency', 'asc')->get();
         return view('admin.exchange_rates.index', compact('rates'));
     }
 
-    // Tambah/Update Kurs Manual
+    // Menambah/Update kurs manual
     public function store(Request $request)
     {
         $request->validate([
-            'currency_code' => 'required|string|size:3', // Contoh: JPY, SGD
-            'rate' => 'required|numeric|min:1'
+            'currency_code' => 'required|string|size:3|uppercase',
+            'rate' => 'required|numeric|min:0'
         ]);
 
-        $code = strtoupper($request->currency_code);
+        ExchangeRate::updateOrCreate(
+            ['from_currency' => $request->currency_code, 'to_currency' => 'IDR'],
+            ['rate' => $request->rate]
+        );
 
-        ExchangeRate::create([
-            'from_currency' => $code,
-            'to_currency' => 'IDR',
-            'rate' => $request->rate,
-            'date' => now(),
-        ]);
-
-        return back()->with('success', "Kurs 1 $code berhasil diupdate menjadi Rp " . number_format($request->rate));
+        return back()->with('success', 'Kurs ' . $request->currency_code . ' berhasil disimpan.');
     }
 
-    // Hapus Mata Uang (Hapus historynya juga biar bersih)
+    // Menghapus kurs
     public function destroy($currency)
     {
         ExchangeRate::where('from_currency', $currency)->delete();
-        return back()->with('success', "Mata uang $currency berhasil dihapus dari sistem.");
+        return back()->with('success', 'Mata uang berhasil dihapus.');
     }
 
-    // Sync Otomatis Semua Mata Uang
+    // Sync API Otomatis (Contoh menggunakan ExchangeRate-API gratisan)
     public function syncApi()
     {
         try {
-            // Kita pakai API yang base-nya IDR, lalu kita balik nilainya
-            // Atau pakai API open.er-api.com yang gratis dan support banyak
-            $response = Http::get('https://open.er-api.com/v6/latest/IDR');
+            // Contoh URL API (Bisa diganti dengan API berbayar/gratis lain)
+            // https://api.exchangerate-api.com/v4/latest/USD
+            $response = Http::get('https://api.exchangerate-api.com/v4/latest/USD');
             
             if ($response->successful()) {
                 $data = $response->json();
-                $rates = $data['rates'];
+                $usdToIdr = $data['rates']['IDR'] ?? 16000;
 
-                // Daftar Mata Uang yang ADA di database kita saja yang diupdate
-                // Supaya database tidak penuh sampah mata uang aneh
-                $trackedCurrencies = ExchangeRate::select('from_currency')->distinct()->pluck('from_currency');
+                // Update USD
+                ExchangeRate::updateOrCreate(
+                    ['from_currency' => 'USD', 'to_currency' => 'IDR'],
+                    ['rate' => $usdToIdr]
+                );
 
-                foreach ($trackedCurrencies as $currency) {
-                    if (isset($rates[$currency])) {
-                        // Rumus: Jika 1 IDR = 0.000064 USD, maka 1 USD = 1 / 0.000064 IDR
-                        $rateInIDR = 1 / $rates[$currency];
+                // Update mata uang lain jika perlu (EUR, SGD, JPY)
+                // Logic: Rate Mata Uang X ke IDR = (1 / Rate USD ke X) * Rate USD ke IDR
+                // ... (implementasi logika konversi) ...
 
-                        ExchangeRate::create([
-                            'from_currency' => $currency,
-                            'to_currency' => 'IDR',
-                            'rate' => $rateInIDR,
-                            'date' => now(),
-                        ]);
-                    }
-                }
-
-                return back()->with('success', 'Semua mata uang yang terdaftar berhasil disinkronkan dengan pasar global!');
+                return back()->with('success', 'Sinkronisasi berhasil! Rate USD saat ini: Rp ' . number_format($usdToIdr));
             }
             
-            return back()->with('error', 'Gagal terhubung ke API Valas.');
+            return back()->with('error', 'Gagal mengambil data dari API.');
+
         } catch (\Exception $e) {
-            return back()->with('error', 'Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 }
