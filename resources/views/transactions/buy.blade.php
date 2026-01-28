@@ -80,12 +80,24 @@
                                 class="w-full pl-12 pr-10 py-3.5 bg-white border border-gray-200 rounded-xl font-bold text-gray-800 appearance-none cursor-pointer focus:ring-1 focus:ring-black focus:border-black transition-all outline-none"
                                 required>
                                 <option value="" data-price="0">-- Pilih Aset Investasi --</option>
-                                @foreach($assets as $asset)
-                                <option value="{{ $asset->symbol }}" data-type="{{ $asset->type }}"
-                                    data-price="{{ $asset->current_price }}">
-                                    {{ $asset->symbol }} - {{ $asset->name }}
-                                </option>
-                                @endforeach
+                                {{-- Grouping Biar Rapi --}}
+                                <optgroup label="Mata Uang Asing (Valas)">
+                                    @foreach($assets->where('type', 'Currency') as $asset)
+                                    <option value="{{ $asset->symbol }}" data-type="{{ $asset->type }}"
+                                        data-price="{{ $asset->current_price }}">
+                                        {{ $asset->symbol }} - {{ $asset->name }}
+                                    </option>
+                                    @endforeach
+                                </optgroup>
+
+                                <optgroup label="Saham & Crypto">
+                                    @foreach($assets->where('type', '!=', 'Currency') as $asset)
+                                    <option value="{{ $asset->symbol }}" data-type="{{ $asset->type }}"
+                                        data-price="{{ $asset->current_price }}">
+                                        {{ $asset->symbol }} - {{ $asset->name }}
+                                    </option>
+                                    @endforeach
+                                </optgroup>
                             </select>
                             <div class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,7 +238,8 @@
                     <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none"
                         stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                            d="M14 5l7 7m0 0l-7 7m7-7H3">
+                        </path>
                     </svg>
                 </button>
             </div>
@@ -260,24 +273,33 @@ const currencyLabel = document.getElementById('currencyLabel');
 const feeCurrencyLabel = document.getElementById('feeCurrencyLabel');
 
 // ---------------------------------------------------------
-// 1. AUTO-SELECT ASSET DARI URL PARAMETER (FIX UTAMA)
+// 1. AUTO-SELECT ASSET DARI URL PARAMETER
 // ---------------------------------------------------------
 document.addEventListener('DOMContentLoaded', function() {
-    // Ambil parameter 'symbol' dari URL (misal: ?symbol=BBCA)
+    // Ambil parameter dari URL
     const urlParams = new URLSearchParams(window.location.search);
-    const symbolParam = urlParams.get('symbol');
 
-    if (symbolParam) {
-        // Cari option yang value-nya sama dengan symbol
-        // Kita loop karena value option mungkin formatnya beda, tapi di sini value="{{ $asset->symbol }}"
+    // Support kedua nama parameter: 'asset' (dari Valas) atau 'symbol' (dari Market lain)
+    const assetParam = urlParams.get('asset') || urlParams.get('symbol');
+    const amountParam = urlParams.get('amount'); // Ambil jumlah jika ada (dari Kalkulator Valas)
+
+    // 1. Auto Select Aset
+    if (assetParam) {
         for (let i = 0; i < assetSelect.options.length; i++) {
-            if (assetSelect.options[i].value === symbolParam) {
+            if (assetSelect.options[i].value === assetParam) {
                 assetSelect.selectedIndex = i;
                 // Trigger event change manual agar harga terisi otomatis
                 assetSelect.dispatchEvent(new Event('change'));
                 break;
             }
         }
+    }
+
+    // 2. Auto Isi Jumlah (Jika ada dari kalkulator)
+    if (amountParam) {
+        amountInput.value = amountParam;
+        // Trigger event input agar kalkulasi total berjalan
+        amountInput.dispatchEvent(new Event('input'));
     }
 });
 
@@ -292,7 +314,7 @@ assetSelect.addEventListener('change', function() {
     currencyLabel.innerText = symbolCurrency;
     feeCurrencyLabel.innerText = symbolCurrency;
 
-    // Auto isi harga jika ada
+    // Auto isi harga jika ada dan valid
     if (price && price > 0) {
         buyPriceInput.value = price;
     }
@@ -336,6 +358,7 @@ function calculate() {
 
     // Validasi Saldo (Hanya jika wallet sudah dipilih)
     if (walletOption && !walletOption.disabled) {
+        // Cek apakah saldo cukup
         if (total > balance) {
             insufficientBalanceMsg.classList.remove('hidden');
             submitBtn.disabled = true;
@@ -344,8 +367,14 @@ function calculate() {
             totalDisplay.classList.remove('text-white');
         } else {
             insufficientBalanceMsg.classList.add('hidden');
-            submitBtn.disabled = false;
-            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            // Cek apakah input valid (amount > 0)
+            if (amount > 0 && price > 0) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
             totalDisplay.classList.remove('text-red-400');
             totalDisplay.classList.add('text-white');
         }
@@ -365,8 +394,14 @@ walletSelect.addEventListener('change', function() {
             currency: currency
         });
         walletBalanceDisplay.innerText = formatter.format(balance);
-        currencyFlag.src = `https://flagcdn.com/w40/${flag}.png`;
-        currencyFlag.classList.remove('hidden');
+
+        // Update Bendera jika ada
+        if (flag) {
+            currencyFlag.src = `https://flagcdn.com/w40/${flag}.png`;
+            currencyFlag.classList.remove('hidden');
+        } else {
+            currencyFlag.classList.add('hidden');
+        }
     }
     calculate();
 });
