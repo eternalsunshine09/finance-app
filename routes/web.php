@@ -7,8 +7,8 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\MarketController;
 use App\Http\Controllers\ExchangeController;
 use App\Http\Controllers\AdminDashboardController;
-use App\Http\Controllers\AssetController; // Admin Asset Controller
-use App\Http\Controllers\AdminTransactionController; // Admin Transaction Controller
+use App\Http\Controllers\AssetController;
+use App\Http\Controllers\AdminTransactionController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PortfolioController;
@@ -81,30 +81,32 @@ Route::middleware(['auth'])->group(function () {
     // Wallet
     Route::get('/wallet', [WalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet', [WalletController::class, 'store'])->name('wallet.store');
-    // Route::get('/wallet/history', [WalletController::class, 'history'])->name('wallet.history'); // Removed as discussed
     Route::get('/wallet/{id}', [WalletController::class, 'show'])->name('wallet.show');
     Route::get('/wallet/{id}/edit', [WalletController::class, 'edit'])->name('wallet.edit');
     Route::put('/wallet/{id}', [WalletController::class, 'update'])->name('wallet.update');
     Route::delete('/wallet/{id}', [WalletController::class, 'destroy'])->name('wallet.destroy');
 
     // Market Routes (Verified Only)
+    // Group ini otomatis menambahkan awalan 'market' di URL dan 'market.' di nama route
     Route::middleware(['verified'])->name('market.')->prefix('market')->group(function () {
-        Route::get('/indonesia', [MarketController::class, 'index'])->name('index');
-        Route::get('/us', [MarketController::class, 'us'])->name('us');
-        Route::get('/crypto', [MarketController::class, 'crypto'])->name('crypto');
-        Route::get('/commodities', [MarketController::class, 'commodities'])->name('commodities');
-        Route::get('/reksadana', [MarketController::class, 'reksadana'])->name('reksadana');
-        Route::get('/market/valas', [App\Http\Controllers\MarketController::class, 'valas'])->name('market.valas');
+        Route::get('/indonesia', [MarketController::class, 'index'])->name('index'); // route: market.index
+        Route::get('/us', [MarketController::class, 'us'])->name('us'); // route: market.us
+        Route::get('/crypto', [MarketController::class, 'crypto'])->name('crypto'); // route: market.crypto
+        Route::get('/commodities', [MarketController::class, 'commodities'])->name('commodities'); // route: market.commodities
+        Route::get('/reksadana', [MarketController::class, 'reksadana'])->name('reksadana'); // route: market.reksadana
+        
+        // 🔥 PERBAIKAN DISINI 🔥
+        // Hapus '/market' di path dan 'market.' di name
+        Route::get('/valas', [MarketController::class, 'valas'])->name('valas'); // route: market.valas
     });
     
     // Portfolio
     Route::get('/portfolio', [PortfolioController::class, 'index'])->name('portfolio.index');
 
-    
-    // 🔥 Report
+    // Report
     Route::get('/report', [ReportController::class, 'index'])->name('report.index');
-    Route::get('/report/data', [ReportController::class, 'getChartData'])->name('report.data'); // API untuk Grafik
-    Route::get('/report/export', [ReportController::class, 'exportCsv'])->name('report.export'); // Download CSV
+    Route::get('/report/data', [ReportController::class, 'getChartData'])->name('report.data');
+    Route::get('/report/export', [ReportController::class, 'exportCsv'])->name('report.export');
 
     // Internal APIs
     Route::get('/api/price/{symbol}', function ($symbol) {
@@ -133,21 +135,12 @@ Route::middleware(['auth', 'role:admin'])
 
     // 3. MASTER ASSETS (CRUD + Custom Actions)
     Route::prefix('assets')->name('assets.')->group(function() {
-        // List Assets
         Route::get('/', [AssetController::class, 'index'])->name('index');
-        
-        // Create Asset
         Route::get('/create', [AssetController::class, 'create'])->name('create');
         Route::post('/', [AssetController::class, 'store'])->name('store');
-        
-        // Edit Asset
         Route::get('/{id}/edit', [AssetController::class, 'edit'])->name('edit');
         Route::put('/{id}', [AssetController::class, 'update'])->name('update');
-        
-        // Delete Asset
         Route::delete('/{id}', [AssetController::class, 'destroy'])->name('destroy');
-
-        // Custom Actions (Update Price & Sync)
         Route::post('/{id}/update-price', [AssetController::class, 'updatePrice'])->name('update_price'); 
         Route::post('/sync', [AssetController::class, 'syncPrices'])->name('sync'); 
     });
@@ -160,9 +153,9 @@ Route::middleware(['auth', 'role:admin'])
         Route::delete('/{currency}', [AdminExchangeRateController::class, 'destroy'])->name('destroy');
     });
 
-    // 5. TRANSACTION APPROVALS (Top Up / Buy / Sell) - FIXING THE ERROR HERE
+    // 5. TRANSACTION APPROVALS
     Route::prefix('transactions')->name('transactions.')->group(function() {
-        Route::get('/', [AdminTransactionController::class, 'index'])->name('index'); // This defines admin.transactions.index
+        Route::get('/', [AdminTransactionController::class, 'index'])->name('index');
         Route::patch('/{id}/approve', [AdminTransactionController::class, 'approve'])->name('approve');
         Route::patch('/{id}/reject', [AdminTransactionController::class, 'reject'])->name('reject');
     });

@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ExchangeRate; // Pastikan model ini ada
+use App\Models\ExchangeRate;
+use App\Models\Asset;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http; // Untuk Sync API
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AdminExchangeRateController extends Controller
 {
-    // Menampilkan halaman kelola kurs
     public function index()
     {
         $rates = ExchangeRate::orderBy('from_currency', 'asc')->get();
         return view('admin.exchange_rates.index', compact('rates'));
     }
 
-    // Menambah/Update kurs manual
     public function store(Request $request)
     {
         $request->validate([
@@ -23,50 +23,116 @@ class AdminExchangeRateController extends Controller
             'rate' => 'required|numeric|min:0'
         ]);
 
-        ExchangeRate::updateOrCreate(
-            ['from_currency' => $request->currency_code, 'to_currency' => 'IDR'],
-            ['rate' => $request->rate]
-        );
+        $this->updateCurrencyData($request->currency_code, $request->rate);
 
         return back()->with('success', 'Kurs ' . $request->currency_code . ' berhasil disimpan.');
     }
 
-    // Menghapus kurs
     public function destroy($currency)
     {
         ExchangeRate::where('from_currency', $currency)->delete();
+        // Opsional: Hapus aset juga jika diinginkan
+        // Asset::where('symbol', $currency)->where('type', 'Currency')->delete();
+        
         return back()->with('success', 'Mata uang berhasil dihapus.');
     }
 
-    // Sync API Otomatis (Contoh menggunakan ExchangeRate-API gratisan)
+    // =====================================================================
+    // 🔥 SYNC API: UPDATE SEMUA MATA UANG (CROSS RATE) 🔥
+    // =====================================================================
     public function syncApi()
     {
         try {
-            // Contoh URL API (Bisa diganti dengan API berbayar/gratis lain)
-            // https://api.exchangerate-api.com/v4/latest/USD
-            $response = Http::get('https://api.exchangerate-api.com/v4/latest/USD');
+            // 1. Ambil Data API (Base USD)
+            // Kita gunakan Frankfurter (Data Bank Sentral Eropa) karena gratis & stabil
+            $response = Http::withoutVerifying()->get('https://api.frankfurter.app/latest?from=USD');
             
+            // Backup jika Frankfurter down, pakai ExchangeRate-API
+            if ($response->failed()) {
+                $response = Http::withoutVerifying()->get('https://api.exchangerate-api.com/v4/latest/USD');
+            }
+
             if ($response->successful()) {
                 $data = $response->json();
-                $usdToIdr = $data['rates']['IDR'] ?? 16000;
+                $rates = $data['rates'] ?? [];
+                
+                // Pastikan ada data IDR
+                if (!isset($rates['IDR'])) {
+                    return back()->with('error', 'Data IDR tidak ditemukan di API.');
+                }
 
-                // Update USD
-                ExchangeRate::updateOrCreate(
-                    ['from_currency' => 'USD', 'to_currency' => 'IDR'],
-                    ['rate' => $usdToIdr]
-                );
+                $usdToIdr = $rates['IDR']; // Contoh: 16000
+                $updatedCount = 0;
 
-                // Update mata uang lain jika perlu (EUR, SGD, JPY)
-                // Logic: Rate Mata Uang X ke IDR = (1 / Rate USD ke X) * Rate USD ke IDR
-                // ... (implementasi logika konversi) ...
+                // 2. Ambil SEMUA mata uang yang ada di Database kita
+                // Kita hanya update yang sudah didaftarkan admin agar tidak menuh-menuhin database
+                $myCurrencies = ExchangeRate::pluck('from_currency')->toArray();
 
-                return back()->with('success', 'Sinkronisasi berhasil! Rate USD saat ini: Rp ' . number_format($usdToIdr));
+                // Jika list kosong (belum ada data sama sekali), kita inisiatif tambahkan USD
+                if (empty($myCurrencies)) {
+                    $myCurrencies = ['USD'];
+                }
+
+                foreach ($myCurrencies as $code) {
+                    $code = strtoupper($code);
+                    $newRate = 0;
+
+                    if ($code === 'USD') {
+                        // Jika USD, langsung pakai harga IDR
+                        $newRate = $usdToIdr;
+                    } 
+                    elseif (isset($rates[$code]) && $rates[$code] > 0) {
+                        // Jika mata uang lain (misal JPY), hitung Cross Rate
+                        // Rumus: Rate IDR / Rate JPY = Harga 1 JPY dalam Rupiah
+                        // Contoh: 16000 / 150 = 106.66
+                        $rateInUsd = $rates[$code];
+                        $newRate = $usdToIdr / $rateInUsd;
+                    }
+
+                    // 3. Simpan ke Database jika rate valid
+                    if ($newRate > 0) {
+                        $this->updateCurrencyData($code, $newRate);
+                        $updatedCount++;
+                    }
+                }
+
+                return back()->with('success', "Berhasil sinkronisasi {$updatedCount} mata uang (Base USD: Rp " . number_format($usdToIdr) . ")");
             }
             
-            return back()->with('error', 'Gagal mengambil data dari API.');
+            return back()->with('error', 'Gagal terhubung ke server API.');
 
         } catch (\Exception $e) {
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            Log::error("Sync API Error: " . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan sistem: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Helper Function: Update tabel ExchangeRate DAN Asset sekaligus
+     */
+    private function updateCurrencyData($symbol, $rate)
+    {
+        $symbol = strtoupper($symbol);
+
+        // 1. Update Tabel Kurs
+        ExchangeRate::updateOrCreate(
+            ['from_currency' => $symbol, 'to_currency' => 'IDR'],
+            [
+                'rate' => $rate,
+                'date' => now() // Timestamp update
+            ]
+        );
+
+        // 2. Update Tabel Asset (Agar bisa masuk Portfolio)
+        Asset::updateOrCreate(
+            ['symbol' => $symbol],
+            [
+                'name' => 'Mata Uang ' . $symbol,
+                'type' => 'Currency',
+                'current_price' => $rate,
+                'logo' => "https://flagcdn.com/w80/" . strtolower(substr($symbol, 0, 2)) . ".png",
+                'change_percent' => 0
+            ]
+        );
     }
 }

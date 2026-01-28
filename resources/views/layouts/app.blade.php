@@ -127,12 +127,9 @@
                                     class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Commodities</a>
                                 <a href="{{ route('market.reksadana') }}"
                                     class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Reksadana/ETF</a>
-                                {{-- 🔥 TAMBAHKAN DISINI 🔥 --}}
                                 <a href="{{ route('market.valas') }}"
-                                    class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition duration-150 ease-in-out
-                                     {{ request()->routeIs('market.valas') ? 'border-black text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }}">
-                                    💱 Kurs Valas
-                                </a>
+                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black">Kurs
+                                    Valas</a>
                             </div>
                         </div>
                     </div>

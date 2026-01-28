@@ -10,6 +10,7 @@
         <p class="text-sm text-gray-500 mt-1">Kelola nilai tukar Rupiah (IDR) terhadap mata uang global.</p>
     </div>
 
+    {{-- TOMBOL SYNC API --}}
     <form action="{{ route('admin.exchange-rates.sync') }}" method="POST">
         @csrf
         <button type="submit"

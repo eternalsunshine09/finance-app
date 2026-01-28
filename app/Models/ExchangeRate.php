@@ -9,11 +9,11 @@ class ExchangeRate extends Model
 {
     use HasFactory;
 
-    // Tambahkan semua kolom ini agar bisa diisi:
+    // Tambahkan 'date' ke dalam fillable
     protected $fillable = [
-        'from_currency',
-        'to_currency',
-        'rate',
-        'date'
+        'from_currency', 
+        'to_currency', 
+        'rate', 
+        'date' // 🔥 Wajib ada agar controller bisa menyimpan tanggal
     ];
 }

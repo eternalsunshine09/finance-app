@@ -53,6 +53,14 @@
                             Rp <span x-text="new Intl.NumberFormat('id-ID').format(result)">0</span>
                         </div>
                     </div>
+
+                    {{-- 🔥 TOMBOL BELI DI KALKULATOR (Baru) 🔥 --}}
+                    <div x-show="currency != '' && amount > 0" x-transition>
+                        <a :href="'{{ route('buy') }}?asset=' + currency + '&amount=' + amount"
+                            class="block w-full text-center bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-lg transition shadow-md mt-4">
+                            Beli <span x-text="amount"></span> <span x-text="currency"></span> Sekarang
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -71,6 +79,7 @@
                                 <th class="px-6 py-4">Mata Uang</th>
                                 <th class="px-6 py-4 text-right">Nilai Tukar (IDR)</th>
                                 <th class="px-6 py-4 text-center">Update</th>
+                                <th class="px-6 py-4 text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 text-sm">
@@ -99,10 +108,17 @@
                                 <td class="px-6 py-4 text-center text-xs text-gray-400">
                                     {{ $rate->updated_at->diffForHumans() }}
                                 </td>
+                                <td class="px-6 py-4 text-center">
+                                    {{-- 🔥 TOMBOL BELI DI TABEL (Baru) 🔥 --}}
+                                    <a href="{{ route('buy') }}?asset={{ $rate->from_currency }}"
+                                        class="inline-flex items-center px-4 py-2 bg-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition shadow-sm">
+                                        Beli
+                                    </a>
+                                </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="3" class="px-6 py-12 text-center text-gray-400">
+                                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
                                     Belum ada data kurs.
                                 </td>
                             </tr>
