@@ -91,6 +91,47 @@ class DashboardController extends Controller
         ]);
     }
 
+    public function getChartData(Request $request)
+    {
+        $user = Auth::user();
+        $filter = $request->query('filter', '1M');
+
+        // Tentukan berapa hari ke belakang berdasarkan filter
+        $days = match($filter) {
+            '1W'  => 7,
+            '1M'  => 30,
+            '3M'  => 90,
+            '6M'  => 180,
+            '1Y'  => 365,
+            'ALL' => 1000, // Sesuaikan dengan sejak kapan user bergabung
+            default => 30
+        };
+
+        // Ambil history dari database
+        // Pastikan Anda punya tabel portfolio_histories yang mencatat nilai aset harian
+        $history = \App\Models\PortfolioHistory::where('user_id', $user->id)
+            ->where('date', '>=', now()->subDays($days))
+            ->orderBy('date', 'asc')
+            ->get();
+
+        $labels = [];
+        $values = [];
+
+        foreach ($history as $data) {
+            // Format label: Jika range pendek munculkan tgl/bln, jika panjang munculkan bln/thn
+            $labels[] = ($days <= 30) 
+                ? $data->date->format('d M') 
+                : $data->date->format('M Y');
+                
+            $values[] = $data->total_value;
+        }
+
+        return response()->json([
+            'labels' => $labels,
+            'values' => $values
+        ]);
+    }
+
     /**
      * Hitung persentase pertumbuhan dari bulan lalu
      */

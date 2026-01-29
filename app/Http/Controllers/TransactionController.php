@@ -211,6 +211,8 @@ class TransactionController extends Controller
 
             $wallet->increment('balance', $request->amount);
 
+            $transactionDate = $request->created_at ? $request->created_at : now();
+
             // 3. Catat Transaksi
             Transaction::create([
                 'user_id'        => $user->id,
@@ -220,8 +222,8 @@ class TransactionController extends Controller
                 'amount'         => 0, // 0 karena bukan aset
                 'price_per_unit' => 1, // Dummy agar tidak error
                 'asset_symbol'   => null,
-                'created_at'     => $request->custom_date ?? now(),
-                'date'           => $request->custom_date ?? now(),
+                'date'           => $transactionDate, 
+                'created_at'     => $transactionDate,
                 'status'         => 'approved',
                 'description'    => 'Setor Tunai / Top Up Manual',
                 'payment_proof'  => $proofPath 
